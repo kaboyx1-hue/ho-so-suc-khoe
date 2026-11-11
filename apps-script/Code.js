@@ -174,12 +174,15 @@ function ngayThat_(s) {
 function bangCua_(b) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const { ten, cot, chu } = BANG[b];
-  let sh = ss.getSheetByName(ten);
+  // File Sheet tao bang lenh (chua tung mo tren trinh duyet) co the bao "Sheet ... not found"
+  // khi doc danh sach trang: luc do bo qua trang mac dinh, tao thang trang moi.
+  let sh = null, dsTrang = null;
+  try { sh = ss.getSheetByName(ten); dsTrang = ss.getSheets(); } catch (e) { /* file chua dung xong */ }
   if (sh) return sh;
 
   // Dung lai trang trong mac dinh cua file moi, khong de thua "Sheet1".
-  const dau = ss.getSheets()[0];
-  const laTrangMacDinh = dau.getLastRow() === 0 && !Object.values(BANG).some(x => x.ten === dau.getName());
+  const dau = dsTrang && dsTrang[0];
+  const laTrangMacDinh = !!dau && dau.getLastRow() === 0 && !Object.values(BANG).some(x => x.ten === dau.getName());
   if (laTrangMacDinh) { sh = dau; sh.setName(ten); }
   else sh = ss.insertSheet(ten);
 
