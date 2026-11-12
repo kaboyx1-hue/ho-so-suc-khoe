@@ -30,6 +30,7 @@
     can: { ten: 'Cân nặng', icon: '⚖️', o: ['Cân nặng'], dv: ['kg'], le: 1 },
     da_tran: da('trán'), da_mui: da('mũi'), da_ma: da('má'), da_cam: da('cằm'),
     phong: { ten: 'Phòng lúc đo', icon: '🌡️', o: ['Nhiệt độ phòng', 'Độ ẩm phòng'], dv: ['°C', '%'], le: 1, nhom: 'da' },
+    pu: { ten: 'Phản ứng', icon: '😣', o: ['Triệu chứng', 'Mức độ'], dv: ['', ''], le: 0, nhom: 'pu' },
   };
   T.VUNG_DA = ['da_tran', 'da_mui', 'da_ma', 'da_cam'];
 
@@ -198,6 +199,45 @@
     const thap = danhMuc.filter(m => m.histamine === 0 && m.kcal >= 30 && !/chưa nấu/i.test(m.mon)); // bo nguyen lieu song
     const quen = thap.filter(m => daAn.has(m.mon.trim().toLowerCase()));
     return quen.concat(thap.filter(m => !daAn.has(m.mon.trim().toLowerCase()))).slice(0, n);
+  };
+
+  // ---- Phan ung co the: luu o bang chi so, loai 'pu', a = cac trieu chung (moi trieu chung 1 bit), b = muc do 1-3 ----
+  // KHONG doi thu tu danh sach nay: vi tri trong danh sach chinh la bit da luu tren Sheet. Them moi thi them vao cuoi.
+  T.TRIEU_CHUNG = [
+    ['Ngứa', '🤚'], ['Đỏ, nóng mặt', '🔥'], ['Nổi mẩn, mề đay', '🔴'], ['Nổi mụn mới', '🟠'], ['Da đổ dầu nhiều', '💧'],
+    ['Đau đầu', '🤕'], ['Nghẹt mũi, hắt hơi', '🤧'], ['Đầy bụng, khó tiêu', '🫃'], ['Tim đập nhanh', '💓'], ['Mệt, uể oải', '😮‍💨'],
+  ];
+  T.MUC_PU = ['', 'Nhẹ', 'Vừa', 'Nặng'];
+  T.trieuChung = a => T.TRIEU_CHUNG.filter((_, i) => (a >> i) & 1);
+  T.batTat = (a, i) => a ^ (1 << i);
+
+  const phut = (ngay, gio) => {
+    const [y, m, d] = ngay.split('-').map(Number);
+    const [h, p] = (gio || '12:00').split(':').map(Number);
+    return new Date(y, m - 1, d, h, p).getTime();
+  };
+  // Mon an trong khoang `gioTruoc` gio truoc luc phan ung (gom ca luc phan ung), moi nhat truoc.
+  T.monTruoc = (dsAn, pu, gioTruoc = 24) => {
+    const t = phut(pu.ngay, pu.gio);
+    return dsAn.filter(x => !x.xoa && phut(x.ngay, x.gio) <= t && phut(x.ngay, x.gio) > t - gioTruoc * 3600000)
+      .sort((a, b) => phut(b.ngay, b.gio) - phut(a.ngay, a.gio));
+  };
+  // Mon hay di truoc phan ung: dem so lan phan ung co mon do trong 24 gio truoc. Chi la trung hop thoi gian, khong phai nguyen nhan.
+  T.monHayGap = (dsAn, dsPu, toiThieu = 2) => {
+    const dem = {};
+    for (const pu of dsPu.filter(x => !x.xoa && x.loai === 'pu')) {
+      const daDem = new Set();
+      for (const x of T.monTruoc(dsAn, pu)) {
+        const k = x.mon.trim().toLowerCase();
+        if (daDem.has(k)) continue;
+        daDem.add(k);
+        dem[k] = dem[k] || { mon: x.mon, lan: 0, histamine: x.histamine };
+        dem[k].lan++;
+      }
+    }
+    // Kem so ngay da an mon do: mon ngay nao cung an (com trang) thi dung nhien hay gap, de nguoi xem tu can nhac
+    for (const x of Object.values(dem)) x.soNgayAn = new Set(dsAn.filter(a => !a.xoa && a.mon.trim().toLowerCase() === x.mon.trim().toLowerCase()).map(a => a.ngay)).size;
+    return Object.values(dem).filter(x => x.lan >= toiThieu).sort((a, b) => b.lan - a.lan || a.soNgayAn - b.soNgayAn || a.mon.localeCompare(b.mon));
   };
 
   // Gop ban ghi tu may chu vao kho cua may nay. Ban nao sua sau thi thang.

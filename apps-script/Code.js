@@ -21,7 +21,7 @@ const CHON = {
 };
 // Chan cung so phi sinh ly (app chi canh bao mem trong khoang hep hon). Loai cu khong co o day thi chi chan 1e9.
 const DA = { a: [0, 100], b: [0, 100] };
-const GIOI_HAN = { can: { a: [2, 300] }, da_tran: DA, da_mui: DA, da_ma: DA, da_cam: DA, phong: { a: [-10, 60], b: [0, 100] } };
+const GIOI_HAN = { can: { a: [2, 300] }, da_tran: DA, da_mui: DA, da_ma: DA, da_cam: DA, phong: { a: [-10, 60], b: [0, 100] }, pu: { a: [1, 1023], b: [1, 3] } };
 
 function doGet() {
   return ContentService.createTextOutput('Ho So Suc Khoe dang chay.');

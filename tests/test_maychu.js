@@ -50,9 +50,10 @@ test('chan so phi sinh ly: can nang, do da, phong; loai cu van nhan; xoa van duo
     cs('d1', 'da_tran', 42, 18), cs('d2', 'da_ma', 120, 10), cs('d3', 'da_mui', 30, 101),
     cs('p1', 'phong', 29, 70), cs('p2', 'phong', 90, 50), cs('p3', 'phong', 28, 130),
     cs('h1', 'huyetap', 120, 80), cs('x1', 'can', 900, 0, { xoa: 1 }),
+    cs('u1', 'pu', 5, 2), cs('u2', 'pu', 2048, 1), cs('u3', 'pu', 3, 7),
   ] });
-  assert.deepEqual(kq.boQua.sort(), ['c2', 'c3', 'd2', 'd3', 'p2', 'p3']);
-  assert.deepEqual(kq.ds.map(x => x.r.id).sort(), ['c1', 'd1', 'h1', 'p1', 'x1']);
+  assert.deepEqual(kq.boQua.sort(), ['c2', 'c3', 'd2', 'd3', 'p2', 'p3', 'u2', 'u3']);
+  assert.deepEqual(kq.ds.map(x => x.r.id).sort(), ['c1', 'd1', 'h1', 'p1', 'u1', 'x1']);
 });
 
 test('an uong: muc histamine va co da mun luu dung, o trong = chua phan loai, gia tri la bi chan', () => {

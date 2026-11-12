@@ -151,3 +151,31 @@ test('co da mun dem rieng tung co che; goi y can bang chi lay mon thap, mon tung
   assert.equal(gy[0].mon, thap.mon);
   assert.ok(gy.every(m => m.histamine === 0));
 });
+
+test('phan ung: trieu chung luu dang bit, bat tat dung, danh sach khong doi thu tu', () => {
+  let a = 0;
+  a = T.batTat(a, 0); a = T.batTat(a, 3);
+  assert.deepEqual(T.trieuChung(a).map(x => x[0]), ['Ngứa', 'Nổi mụn mới']);
+  a = T.batTat(a, 0);
+  assert.deepEqual(T.trieuChung(a).map(x => x[0]), ['Nổi mụn mới']);
+  assert.equal(T.TRIEU_CHUNG[0][0], 'Ngứa'); // doi thu tu se doc sai du lieu cu tren Sheet
+  assert.equal(T.TRIEU_CHUNG[9][0], 'Mệt, uể oải');
+});
+
+test('phan ung: mon trong 24 gio truoc, dem mon hay gap kem so ngay da an', () => {
+  const an = [
+    { mon: 'Cá thu', ngay: '2026-11-10', gio: '19:00', histamine: '2' },
+    { mon: 'Cơm trắng', ngay: '2026-11-10', gio: '19:00', histamine: '0' },
+    { mon: 'Cơm trắng', ngay: '2026-11-11', gio: '12:00', histamine: '0' },
+    { mon: 'Kim chi', ngay: '2026-11-12', gio: '12:00', histamine: '2' },
+    { mon: 'Cá thu', ngay: '2026-11-12', gio: '19:00', histamine: '2' },
+    { mon: 'Phở bò', ngay: '2026-11-09', gio: '07:00', histamine: '1' }, // qua 24 gio
+    { mon: 'Cá thu', ngay: '2026-11-13', gio: '08:00', histamine: '2', xoa: 1 },
+  ];
+  const pu1 = { loai: 'pu', ngay: '2026-11-11', gio: '08:00', a: 1, b: 2 };
+  const pu2 = { loai: 'pu', ngay: '2026-11-13', gio: '07:00', a: 4, b: 1 };
+  assert.deepEqual(T.monTruoc(an, pu1).map(x => x.mon), ['Cá thu', 'Cơm trắng']);
+  assert.deepEqual(T.monTruoc(an, pu2).map(x => x.mon), ['Cá thu', 'Kim chi']);
+  const gap = T.monHayGap(an, [pu1, pu2, { ...pu2, xoa: 1 }]);
+  assert.deepEqual(gap.map(x => [x.mon, x.lan, x.soNgayAn]), [['Cá thu', 2, 2]]);
+});
