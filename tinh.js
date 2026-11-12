@@ -147,10 +147,19 @@
       // Cac tu lien nhau dung thu tu nhu trong ten mon ("thịt kho") duoc cong them
       let lien = 0;
       for (let i = 0; i + 1 < q.length; i++) if (ten.includes(` ${q[i]} ${q[i + 1]} `)) lien += 0.5 * (w(q[i]) + w(q[i + 1]));
+      // Ten mon Viet mo dau bang loai mon (canh, bun, pho...): chu dau trung nhau duoc cong them
+      if (tu[0] === q[0] && df[q[0]]) lien += 0.5 * w(q[0]);
       ds.push({ m: x.m, d: (khop + lien) * (0.6 + 0.4 * khop / tongX) * (khop / tongQ) }); // thieu tu da go thi bi tru
     }
     ds.sort((a, b) => b.d - a.d);
     if (!ds.length) return { kq: 'khong', chon: null, ungVien: [] };
+    // Chu dau la loai mon ("canh rau củ"): mon diem cao nhat khong co chu do ma co mon khac mo dau dung chu do -> hoi lai
+    const tuOf = x => cm.mon.find(y => y.m === x.m) || { tu: [], kd: [] };
+    const dauCua = x => (coDau ? tuOf(x).tu : tuOf(x).kd);
+    const dungLoai = ds.find(x => dauCua(x)[0] === q[0]);
+    if (dungLoai && ds[0] !== dungLoai && !dauCua(ds[0]).includes(q[0]) && ds[0].d < 1e6) {
+      return { kq: 'mo', chon: null, ungVien: [dungLoai, ...ds.filter(x => x !== dungLoai)].slice(0, 6).map(x => x.m) };
+    }
     if (ds.length === 1 || ds[1].d < ds[0].d * RO) return { kq: 'ro', chon: ds[0].m, ungVien: ds.slice(1, 4).map(x => x.m) };
     return { kq: 'mo', chon: null, ungVien: ds.filter(x => x.d >= ds[0].d * RO).slice(0, 6).map(x => x.m) };
   };

@@ -789,7 +789,8 @@ const FORM = {
     const cu = T.monCu(ds('an')).slice(0, 12);
     return chips('bua', BUA.map(([v, n, i]) => [v, n.replace('Ăn vặt, đồ uống', 'Ăn vặt'), i])) +
       (F.moi && cu.length ? `<div class="moncu">${cu.map(x => `<button type="button" data-moncu="${esc(x.id)}">${esc(x.mon)}${x.kcal ? ' · ' + T.hienSo(x.kcal) : ''}</button>`).join('')}</div>` : '') +
-      `<label class="o"><span>Món ăn${F.moi ? ' (nhiều món thì cách nhau bằng dấu phẩy)' : ''}</span><input data-truong="mon" id="fMon" value="${esc(F.r.mon)}" placeholder="${F.moi ? 'Ví dụ: Cơm, thịt kho tàu, rau muống' : 'Ví dụ: Phở bò'}" maxlength="400" autocomplete="off"></label>
+      `<label class="o"><span>Món ăn (nhiều món thì cách nhau bằng dấu phẩy)</span><input data-truong="mon" id="fMon" value="${esc(F.r.mon)}" placeholder="Ví dụ: Cơm, thịt kho tàu, rau muống" maxlength="400" autocomplete="off"></label>
+      ${F.moi ? '' : '<button type="button" class="lienket" data-lam="themVaoBua">+ Thêm món khác vào bữa này</button>'}
       <div id="fKhop">${khopHtml()}</div>
       <div id="fSo"><div class="hang2">${oChu('luong', 'Lượng', '1 tô, 200g…')}${oSo('kcal', 'Calo', 'kcal')}</div>
       <details ${F.r.dam || F.r.bot || F.r.beo ? 'open' : ''}><summary>Đạm, tinh bột, chất béo</summary>
@@ -890,7 +891,7 @@ function veThanHop() {
 // Khop lai ten mon dang go. Mon ro rang thi dien so (chi dien o con trong hoac o do app dien truoc do).
 function khopLai() {
   const go = F.r.mon || '';
-  const phan = F.moi ? T.tachMon(go) : [go.trim()].filter(Boolean);
+  const phan = T.tachMon(go);
   if (phan.length > 1) { F.khop = { nhieu: phan.length }; F.chon = null; return; }
   const k = T.khopMon(phan[0] || '', F.cm);
   F.khop = { ...k, go: phan[0] || '' };
@@ -953,7 +954,7 @@ function luuHop() {
   const r = F.r;
   if (r.ngay !== undefined && F.b !== 'hs' && !/^\d{4}-\d{2}-\d{2}$/.test(r.ngay)) { baoLoi('Bạn chưa chọn ngày'); return; }
   if (F.b === 'an' && !F.nhieu && !r.mon) { baoLoi('Bạn chưa nhập tên món'); return; }
-  if (F.b === 'an' && !F.nhieu && F.moi && T.tachMon(r.mon).length > 1) { moXemLai(); return; }
+  if (F.b === 'an' && !F.nhieu && T.tachMon(r.mon).length > 1) { moXemLai(); return; } // ca khi dang sua: mon dau thay mon nay, mon sau them vao bua
   if (F.b === 'an' && F.nhieu) { luuNhieu(); return; }
   if (F.b === 'da') { luuDa(); return; }
   if (F.b === 'cs' && r.loai === 'pu' && !r.a) { baoLoi('Bạn chưa chọn triệu chứng nào'); return; }
@@ -993,9 +994,10 @@ function luuNhieu() {
   const thieu = F.nhieu.filter(x => !x.m && x.kq === 'mo' && !x.giu);
   if (thieu.length) { baoLoi(`Hãy chọn món cho: ${thieu.map(x => x.go).join(', ')}`); return; }
   const goc = F.r;
-  const ids = F.nhieu.map(x => {
+  const cu = F.moi ? null : S.an[goc.id]; // dang sua: mon dau ghi de len muc nay, cac mon sau la muc moi
+  const ids = F.nhieu.map((x, i) => {
     const m = x.m;
-    const r = { id: taoId(), xoa: 0, ngay: goc.ngay, gio: goc.gio, bua: goc.bua, ghi: goc.ghi || '',
+    const r = { id: i === 0 && cu ? cu.id : taoId(), xoa: 0, ngay: goc.ngay, gio: goc.gio, bua: goc.bua, ghi: goc.ghi || '',
       mon: m ? m.mon : x.go, luong: (m && m.luong) || '', kcal: (m && m.kcal) || 0, dam: (m && m.dam) || 0, bot: (m && m.bot) || 0, beo: (m && m.beo) || 0, ...T.coMon(m) };
     ghi('an', r);
     return r.id;
@@ -1005,7 +1007,7 @@ function luuNhieu() {
   if (tab === 'tq' || tab === 'an') ngay = goc.ngay;
   ve(true);
   bao(`Đã lưu ${ids.length} món${chuaNhan.length ? `. Chưa nhận diện: ${chuaNhan.join(', ')}` : ''}`,
-    () => { ids.forEach(id => ghi('an', { ...S.an[id], xoa: 1 })); ve(); });
+    () => { ids.forEach(id => ghi('an', cu && id === cu.id ? { ...S.an[id], ...cu } : { ...S.an[id], xoa: 1 })); ve(); });
   tungHat();
   if (navigator.vibrate) navigator.vibrate(12);
 }
@@ -1084,6 +1086,12 @@ const LAM = {
   themKs() { moHop('ks'); },
   suaHs() { moHop('hs', S.hs.toi); },
   themDa() { moHop('da'); },
+  themVaoBua() {
+    const o = $('fMon');
+    o.value = o.value.replace(/[\s,]+$/, '') + ', ';
+    o.focus();
+    o.setSelectionRange(o.value.length, o.value.length);
+  },
   doiMon() { F.khop.moDoi = !F.khop.moDoi; veKhop(); },
   nhieuQuay() {
     F.r.mon = F.nhieu.map(x => (x.m ? x.m.mon : x.go)).join(', ');

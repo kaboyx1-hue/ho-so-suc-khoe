@@ -110,6 +110,9 @@ test('khop mo: tu chung chung thi hoi lai nhieu lua chon, khong doan bua', () =>
   assert.ok(k.ungVien.length >= 3);
   assert.ok(k.ungVien.every(m => /cải/i.test(m.mon)));
   assert.equal(khop('cơm').kq, 'mo');
+  const canh = khop('canh rau củ'); // canh hay rau cu luoc: hoi lai, mon canh dung dau
+  assert.equal(canh.kq, 'mo');
+  assert.match(canh.ungVien[0].mon, /^Canh/);
 });
 
 test('khop mo: khong khop thi tra khong, khong tu dien so lieu', () => {
