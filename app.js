@@ -274,7 +274,7 @@ const LUONG = {
   async moPin(so) {
     let kq;
     try { kq = await goiMay({ moPin: so }); } catch (e) { saiRung('Lần đầu trên máy này cần có mạng'); return; }
-    if (kq.loi === 'chua co mat ma') { K.pin1 = so; moKhoa('dat2', 'Sổ chưa có mật mã. Nhập lại dãy vừa rồi để đặt làm mật mã'); return; }
+    if (kq.loi === 'chua co mat ma') { K.pin1 = so; moKhoa('dat2', 'Bước cuối: nhập lại đúng 6 số vừa rồi để lưu làm mật mã của sổ'); return; }
     if (!kq.ok) { saiRung(chuLoi(kq)); return; }
     S.lk = { id: MAY_ID, k: kq.k };
     luuKho();
