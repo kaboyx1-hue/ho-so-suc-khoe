@@ -8,6 +8,7 @@ const VAN_DONG = [['1.2', 'Ít vận động'], ['1.375', 'Nhẹ, 1–3 buổi/t
 const MAU_LOAI = { can: '#2f80ed', da_tran: '#0ca678', da_mui: '#e8590c', da_ma: '#c2255c', da_cam: '#7048e8', phong: '#868e96' };
 const MAU_AM = '#1c7ed6', MAU_NHON = '#e69500', MAU_HIS = '#e03131';
 const KHOA_SAI = 'hssk_pinsai';
+const KHOA_NHAP = 'hssk_nhapdo'; // muc dang ghi do luc roi app, mo khoa xong mo lai dung cho
 const MON = (typeof MON_AN_HISTAMINE !== 'undefined' && MON_AN_HISTAMINE) || [];
 const HIS_CHU = ['His thấp', 'His trung bình', 'His cao'];
 const MIEN_TRU_HIS = 'Điểm histamine chỉ là ước lượng tương đối (món thấp 0, trung bình 1, cao 3), không phải số đo y khoa. Không có ngưỡng chuẩn chung: mức chịu đựng khác nhau theo từng người. Mức của đa số món Việt là suy ra theo nguyên liệu, chưa được đo trực tiếp.';
@@ -187,6 +188,23 @@ function moApp() {
   K.che = ''; K.so = '';
   dongBo();
   ve(true);
+  moLaiNhapDo();
+}
+// Roi app luc dang ghi do: cat lai noi dung hop nhap (ca khi he dieu hanh tat han app chay nen).
+function giuNhapDo() {
+  if (!$('hop').open || !F) return;
+  docHop();
+  const { cm, ...giu } = F; // chi muc mon tinh lai duoc, khong luu
+  try { localStorage.setItem(KHOA_NHAP, JSON.stringify(giu)); } catch (e) { /* het cho thi thoi */ }
+}
+function moLaiNhapDo() {
+  let giu = null;
+  try { giu = JSON.parse(localStorage.getItem(KHOA_NHAP)); } catch (e) { /* hong thi bo */ }
+  localStorage.removeItem(KHOA_NHAP);
+  if (!giu || !FORM[giu.b] || $('hop').open) return;
+  F = giu;
+  hienHop(F.moi ? null : S[F.b][F.r.id]);
+  bao('Đã mở lại phần bạn đang ghi dở');
 }
 function saiRung(chu) {
   K.so = '';
@@ -799,12 +817,18 @@ const FORM = {
 const TEN_HOP = { an: 'Ghi bữa ăn', cs: 'Ghi chỉ số', da: 'Đo da', ks: 'Khám, xét nghiệm, tiêm', hs: 'Hồ sơ của tôi' };
 
 function moHop(b, r, them) {
+  localStorage.removeItem(KHOA_NHAP);
   F = { b, moi: !r, r: r ? { ...r } : macDinh(b, them) };
   if (b === 'hs') F.r = { ...macDinh('hs'), ...F.r };
   if (b === 'an') {
     F.cm = T.chiMuc(T.nguonMon(ds('an'), MON));
     if (F.r.mon && F.moi) khopLai(); // ghi nhanh tu goi y
   }
+  hienHop(r);
+}
+function hienHop(r) {
+  const b = F.b;
+  if (b === 'an' && !F.cm) F.cm = T.chiMuc(T.nguonMon(ds('an'), MON));
   $('fTieuDe').textContent = (r && b !== 'hs' ? 'Sửa: ' : '') + TEN_HOP[b];
   veThanHop();
   $('fXoa').hidden = F.moi || b === 'hs';
@@ -864,6 +888,7 @@ function dongHopMuot() {
   else dongHopThat();
 }
 function dongHopThat() {
+  localStorage.removeItem(KHOA_NHAP);
   const h = $('hop');
   if (!h.open || h.classList.contains('dangdong')) return;
   document.body.appendChild($('toast'));
@@ -1119,7 +1144,7 @@ window.addEventListener('storage', e => { if (e.key === KHOA_KHO) { S = docKho()
 // Roi app (tat man hinh, chuyen app khac) thi che man hinh; quay lai luon phai nhap mat ma, nhu khoa iPhone.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    if (S.lk && P) document.body.classList.add('che');
+    if (S.lk && P) { giuNhapDo(); document.body.classList.add('che'); }
     return;
   }
   if (S.lk && P && $('khoa').hidden) moKhoa('nhap'); // hien man mat ma truoc roi moi bo che, khong lo du lieu
