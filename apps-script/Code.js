@@ -8,7 +8,8 @@ const BANG = {
   // Cot moi luon them vao CUOI: Sheet cu da co du lieu theo vi tri cot. mucNuoc khong con dung, giu cho dung vi tri.
   // Muc histamine va 4 co da mun la chu: o trong = chua phan loai (khong duoc doc thanh 0 = "thap").
   an: { ten: 'AN_UONG', cot: ['id', 'ngay', 'gio', 'bua', 'mon', 'luong', 'kcal', 'dam', 'bot', 'beo', 'ghi', 'sua', 'xoa', 'rev',
-    'histamine', 'duongHuyet', 'suaBo', 'nhomBeo', 'loaiDuong'],
+    'histamine', 'duongHuyet', 'suaBo', 'nhomBeo', 'loaiDuong', 'phan'],
+    // phan: 0.5 it / 1 vua / 1.5 nhieu (o trong o dong cu = 1)
     chu: ['id', 'ngay', 'gio', 'bua', 'mon', 'luong', 'ghi', 'histamine', 'duongHuyet', 'suaBo', 'nhomBeo', 'loaiDuong'] },
   ks: { ten: 'KHAM_BENH', cot: ['id', 'ngay', 'loai', 'noi', 'ten', 'ketQua', 'ghi', 'sua', 'xoa', 'rev'], chu: ['id', 'ngay', 'loai', 'noi', 'ten', 'ketQua', 'ghi'] },
 };
@@ -180,6 +181,7 @@ function hopLe_(m) {
   const gh = m.b === 'cs' && !r.xoa && GIOI_HAN[r.loai];
   if (gh) for (const o of Object.keys(gh)) if (r[o] && (r[o] < gh[o][0] || r[o] > gh[o][1])) return false;
   if (r.mucHistamine !== undefined && !(r.mucHistamine >= 0 && r.mucHistamine <= 999)) return false;
+  if (r.phan !== undefined && !(r.phan >= 0 && r.phan <= 10)) return false;
   return true;
 }
 

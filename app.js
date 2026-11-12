@@ -9,7 +9,7 @@ const MAU_LOAI = { can: '#2f80ed', da_tran: '#0ca678', da_mui: '#e8590c', da_ma:
 const MAU_AM = '#1c7ed6', MAU_NHON = '#e69500', MAU_HIS = '#e03131';
 const KHOA_SAI = 'hssk_pinsai';
 const KHOA_NHAP = 'hssk_nhapdo'; // muc dang ghi do luc roi app, mo khoa xong mo lai dung cho
-const MON = (typeof MON_AN_HISTAMINE !== 'undefined' && MON_AN_HISTAMINE) || [];
+const MON = T.gopDanhMuc((typeof MON_AN_HISTAMINE !== 'undefined' && MON_AN_HISTAMINE) || [], (typeof MON_BIEN_THE !== 'undefined' && MON_BIEN_THE) || []);
 const HIS_CHU = ['His thấp', 'His trung bình', 'His cao'];
 const MIEN_TRU_HIS = 'Điểm histamine chỉ là ước lượng tương đối (món thấp 0, trung bình 1, cao 3), không phải số đo y khoa. Không có ngưỡng chuẩn chung: mức chịu đựng khác nhau theo từng người. Mức của đa số món Việt là suy ra theo nguyên liệu, chưa được đo trực tiếp.';
 
@@ -417,7 +417,7 @@ const nguongHis = () => (hoSo() || {}).mucHistamine || 0;
 const iconBua = b => (BUA.find(x => x[0] === b) || BUA[3])[2];
 
 function dongAn(x) {
-  const phu = [x.luong, x.dam || x.bot || x.beo ? `Đạm ${x.dam || 0}g · Bột ${x.bot || 0}g · Béo ${x.beo || 0}g` : '', x.ghi].filter(Boolean).join(' · ');
+  const phu = [x.luong + ((x.phan || 1) !== 1 ? ` (${T.tenPhan(x.phan).toLowerCase()})` : ''), x.dam || x.bot || x.beo ? `Đạm ${x.dam || 0}g · Bột ${x.bot || 0}g · Béo ${x.beo || 0}g` : '', x.ghi].filter(Boolean).join(' · ');
   return `<button class="dong" data-sua="an:${esc(x.id)}"><span class="oh" style="--n:#fff3e0;--m:#f97316">${iconBua(x.bua)}</span>
     <span class="giua"><div class="ten">${esc(x.mon)} ${coHtml(x)}</div><div class="phu">${esc(x.gio ? x.gio + (phu ? ' · ' + phu : '') : phu)}</div></span>
     <span class="so">${x.kcal ? T.hienSo(x.kcal) + ' kcal' : ''}${hisHtml(x)}</span></button>`;
@@ -505,7 +505,7 @@ function veHomNay() {
       <button data-themcs="pu" style="--n:#fdeef4;--m:#d6336c"><span>😣</span>Phản ứng</button>
       <button data-lam="themKs" style="--n:#eef2ff;--m:#7c3aed"><span>🏥</span>Khám, tiêm</button>
     </section>
-    ${his.vuot ? `<section class="the canhbao"><span class="dg m2">Điểm histamine hôm nay ${his.d.tong} đã vượt ngưỡng ${his.ng} bạn tự đặt</span>
+    ${his.vuot ? `<section class="the canhbao"><span class="dg m2">Điểm histamine hôm nay ${T.hienSo(his.d.tong, 1)} đã vượt ngưỡng ${his.ng} bạn tự đặt</span>
       <p class="ghichu">${MIEN_TRU_HIS}</p></section>` : ''}
     ${canGoiY(his) ? khoiGoiY() : ''}
     ${puNgay.length ? `<section class="the"><h2>Phản ứng ${ngay === T.homNay() ? 'hôm nay' : 'ngày ' + ddmm(ngay)}<button data-xemcs="pu">Xem lại</button></h2>
@@ -533,7 +533,7 @@ function veAn() {
     const mon = an.filter(x => x.bua === b);
     const k = mon.reduce((s, x) => s + (x.kcal || 0), 0);
     const d = his.d.bua[b];
-    return `<div class="bua"><span>${icon} ${ten} ${k ? `<small>· ${T.hienSo(k)} kcal</small>` : ''}${d ? ` <small>· 🧪 ${d}</small>` : ''}</span><button data-thembua="${b}">+ Thêm</button></div>
+    return `<div class="bua"><span>${icon} ${ten} ${k ? `<small>· ${T.hienSo(k)} kcal</small>` : ''}${d ? ` <small>· 🧪 ${T.hienSo(d, 1)}</small>` : ''}</span><button data-thembua="${b}">+ Thêm</button></div>
       ${mon.length ? `<div class="nhom">${mon.map(dongAn).join('')}</div>` : ''}`;
   }).join('');
 
@@ -762,7 +762,7 @@ function buaTheoGio(gio) {
 function macDinh(b, them = {}) {
   const coNgay = tab === 'tq' || tab === 'an';
   const goc = { id: taoId(), xoa: 0, ngay: coNgay ? ngay : T.homNay(), gio: T.gioNay(), ghi: '' };
-  if (b === 'an') return { ...goc, bua: them.bua || buaTheoGio(goc.gio), mon: them.mon || '', luong: '', kcal: 0, dam: 0, bot: 0, beo: 0, ...T.coMon(null) };
+  if (b === 'an') return { ...goc, bua: them.bua || buaTheoGio(goc.gio), mon: them.mon || '', luong: '', kcal: 0, dam: 0, bot: 0, beo: 0, ...T.coMon(null), phan: 1 };
   if (b === 'cs') return { ...goc, loai: them.loai || 'can', a: 0, b: 0, c: 0 };
   if (b === 'da') return { ...goc };
   if (b === 'ks') return { id: goc.id, xoa: 0, ngay: T.homNay(), loai: 'kham', noi: '', ten: '', ketQua: '', ghi: '' };
@@ -788,6 +788,8 @@ function khopHtml() {
   if (k.kq === 'khong' && k.go) return `<p class="khop canh">Chưa nhận diện: ${esc(k.go)}. Vẫn lưu được, tự điền calo nếu muốn.</p>`;
   return '';
 }
+const phanHtml = (phan, attr) => `<div class="chips phan">${T.PHAN.map(([v, ten]) =>
+  `<button type="button" class="${v === (phan || 1) ? 'on' : ''}" ${attr}="${v}">${ten}</button>`).join('')}</div>`;
 const chonMonHtml = (ds2, kieu, tien = '') => `<div class="moncu boc">${ds2.map((m, j) =>
   `<button type="button" data-${kieu}="${tien}${j}">${esc(m.mon)}${m.kcal ? ' · ' + T.hienSo(m.kcal) : ''}</button>`).join('')}</div>`;
 
@@ -799,6 +801,7 @@ const FORM = {
       `<label class="o"><span>Món ăn (nhiều món thì cách nhau bằng dấu phẩy)</span><input data-truong="mon" id="fMon" value="${esc(F.r.mon)}" placeholder="Ví dụ: Cơm, thịt kho tàu, rau muống" maxlength="400" autocomplete="off"></label>
       ${F.moi ? '' : '<button type="button" class="lienket" data-lam="themVaoBua">+ Thêm món khác vào bữa này</button>'}
       <div id="fKhop">${khopHtml()}</div>
+      <div class="o"><span>Ăn ít hay nhiều? (Vừa = 1 phần như cột Lượng)</span></div>${phanHtml(F.r.phan, 'data-phan')}
       <div id="fSo"><div class="hang2">${oChu('luong', 'Lượng', '1 tô, 200g…')}${oSo('kcal', 'Calo', 'kcal')}</div>
       <details ${F.r.dam || F.r.bot || F.r.beo ? 'open' : ''}><summary>Đạm, tinh bột, chất béo</summary>
         <div class="hang3">${oSo('dam', 'Đạm', 'g')}${oSo('bot', 'Tinh bột', 'g')}${oSo('beo', 'Béo', 'g')}</div></details></div>
@@ -806,13 +809,14 @@ const FORM = {
   },
   // Xem lai truoc khi luu nhieu mon: moi mon 1 dong, mon mo ho phai chon, tong ca bua o cuoi.
   anNhieu() {
-    const tong = T.tongAn(F.nhieu.map(x => x.m || {}));
-    const diem = T.diemNgay(F.nhieu.map(x => ({ ...T.coMon(x.m), bua: F.r.bua })));
+    const tong = T.tongAn(F.nhieu.map(x => (x.m ? T.nhanPhan(x.m, x.phan) : {})));
+    const diem = T.diemNgay(F.nhieu.map(x => ({ ...T.coMon(x.m), bua: F.r.bua, phan: x.phan })));
     const dong = F.nhieu.map((x, i) => {
-      const m = x.m;
+      const m = x.m ? { ...x.m, ...T.nhanPhan(x.m, x.phan) } : null;
       const tren = m ? `<b>${esc(m.mon)}</b>${x.go.toLowerCase() !== m.mon.toLowerCase() ? ` <small>(bạn gõ: ${esc(x.go)})</small>` : ''}` : `<b>${esc(x.go)}</b>`;
       const duoi = m ? `<div class="phu">${[m.luong, m.kcal ? T.hienSo(m.kcal) + ' kcal' : '', m.dam || m.bot || m.beo ? `Đạm ${m.dam || 0}g · Bột ${m.bot || 0}g · Béo ${m.beo || 0}g` : ''].filter(Boolean).map(esc).join(' · ')}</div>
-          <div>${hisHtml(T.coMon(m))} ${coHtml(T.coMon(m))} ${x.ungVien.length ? `<button type="button" class="lienket" data-nhieudoi="${i}">Đổi</button>` : ''}</div>`
+          <div>${hisHtml(T.coMon(m))} ${coHtml(T.coMon(m))} ${x.ungVien.length ? `<button type="button" class="lienket" data-nhieudoi="${i}">Đổi</button>` : ''}</div>
+          ${phanHtml(x.phan, `data-nphan="${i}" data-v`)}`
         : x.kq === 'mo' && !x.giu ? '<div class="phu canh">Chọn đúng món:</div>'
           : '<div class="phu canh">Chưa nhận diện: lưu với calo 0, sửa sau được.</div>';
       const chon = (!m && x.kq === 'mo' && !x.giu) || x.moDoi
@@ -820,7 +824,7 @@ const FORM = {
       return `<div class="xemlai">${tren}${duoi}${chon}</div>`;
     }).join('');
     return `<p class="nhan" style="margin:0 0 8px">${BUA.find(b => b[0] === F.r.bua)[1]} · ${tenNgay(F.r.ngay)}${F.r.gio ? ' ' + F.r.gio : ''}</p>${dong}
-      <div class="xemlai tongxl"><b>Cả bữa: ${T.hienSo(tong.kcal)} kcal</b><div class="phu">Đạm ${T.hienSo(tong.dam)}g · Bột ${T.hienSo(tong.bot)}g · Béo ${T.hienSo(tong.beo)}g · 🧪 điểm histamine ${diem.tong}</div></div>
+      <div class="xemlai tongxl"><b>Cả bữa: ${T.hienSo(tong.kcal)} kcal</b><div class="phu">Đạm ${T.hienSo(tong.dam)}g · Bột ${T.hienSo(tong.bot)}g · Béo ${T.hienSo(tong.beo)}g · 🧪 điểm histamine ${T.hienSo(diem.tong, 1)}</div></div>
       <button type="button" class="btn rong" data-lam="nhieuQuay">← Sửa lại danh sách món</button>
       <p class="ghichu">Số calo là ước tính theo khẩu phần phổ biến, mức histamine chỉ để tham khảo.</p>`;
   },
@@ -908,11 +912,22 @@ function datChon(m) {
   const truoc = F.chon;
   F.chon = m;
   Object.assign(F.r, T.coMon(m));
+  // So cua mon (1 phan vua) nhan theo phan dang chon. O nao nguoi dung tu go thi giu nguyen.
+  const theoPhan = x => (x ? { luong: x.luong || '', ...T.nhanPhan(x, F.r.phan || 1) } : {});
+  const cu = theoPhan(truoc), moi = theoPhan(m);
   for (const t of ['luong', 'kcal', 'dam', 'bot', 'beo']) {
-    const cuTuDien = truoc && F.r[t] === truoc[t];
-    if (m && (!F.r[t] || cuTuDien)) F.r[t] = m[t] || (t === 'luong' ? '' : 0);
+    const cuTuDien = truoc && F.r[t] === cu[t];
+    if (m && (!F.r[t] || cuTuDien)) F.r[t] = moi[t] || (t === 'luong' ? '' : 0);
     else if (!m && cuTuDien) F.r[t] = t === 'luong' ? '' : 0;
   }
+}
+// Doi it/vua/nhieu: nhan lai calo, dam, bot, beo dang co theo ti le
+function doiPhan(moi) {
+  docHop();
+  const cu = F.r.phan || 1;
+  Object.assign(F.r, T.nhanPhan(F.r, moi / cu), { phan: moi });
+  $('fThan').querySelectorAll('[data-phan]').forEach(b => b.classList.toggle('on', Number(b.dataset.phan) === moi));
+  veKhop();
 }
 function veKhop() {
   $('fKhop').innerHTML = khopHtml();
@@ -992,7 +1007,7 @@ function luuHop() {
 function moXemLai() {
   F.nhieu = T.tachMon(F.r.mon).map(go => {
     const k = T.khopMon(go, F.cm);
-    return { go, kq: k.kq, m: k.kq === 'ro' ? k.chon : null, ungVien: k.kq === 'ro' ? [k.chon, ...k.ungVien] : k.ungVien };
+    return { go, kq: k.kq, m: k.kq === 'ro' ? k.chon : null, ungVien: k.kq === 'ro' ? [k.chon, ...k.ungVien] : k.ungVien, phan: 1 };
   });
   veThanHop();
   $('hop').querySelector('.thanhop').scrollTop = 0;
@@ -1005,7 +1020,8 @@ function luuNhieu() {
   const ids = F.nhieu.map((x, i) => {
     const m = x.m;
     const r = { id: i === 0 && cu ? cu.id : taoId(), xoa: 0, ngay: goc.ngay, gio: goc.gio, bua: goc.bua, ghi: goc.ghi || '',
-      mon: m ? m.mon : x.go, luong: (m && m.luong) || '', kcal: (m && m.kcal) || 0, dam: (m && m.dam) || 0, bot: (m && m.bot) || 0, beo: (m && m.beo) || 0, ...T.coMon(m) };
+      mon: m ? m.mon : x.go, luong: (m && m.luong) || '', ...(m ? T.nhanPhan(m, x.phan) : { kcal: 0, dam: 0, bot: 0, beo: 0 }), ...T.coMon(m),
+      phan: x.phan };
     ghi('an', r);
     return r.id;
   });
@@ -1150,6 +1166,8 @@ document.addEventListener('click', e => {
   else if (d.thembua) moHop('an', null, { bua: d.thembua });
   else if (d.xemcs) { loaiCs = d.xemcs; if (d.vung && d.vung !== 'can') vungDa = d.vung; tab = 'cs'; luuTrang('push'); ve(true); scrollTo(0, 0); }
   else if (d.chonvung) { vungDa = d.chonvung; ve(); }
+  else if (d.phan !== undefined) doiPhan(Number(d.phan));
+  else if (d.nphan !== undefined) { F.nhieu[d.nphan].phan = Number(d.v); veThanHop(); }
   else if (d.tc !== undefined) { F.r.a = T.batTat(F.r.a || 0, Number(d.tc)); el.classList.toggle('on'); }
   else if (d.ghimon) moHop('an', null, { mon: d.ghimon });
   else if (d.chonmon !== undefined) { docHop(); datChon(F.khop.ungVien[d.chonmon]); F.khop.moDoi = false; $('fMon').value = F.r.mon = F.chon.mon; veKhop(); }
@@ -1176,8 +1194,10 @@ document.addEventListener('click', e => {
     F.r.mon = x.mon;
     F.khop = { kq: 'ro', chon: x, ungVien: [], go: x.mon };
     F.chon = null;
-    for (const t of ['luong', 'kcal', 'dam', 'bot', 'beo']) F.r[t] = x[t] || (t === 'luong' ? '' : 0);
-    datChon(x);
+    const goc = T.coBan(x);
+    F.r.luong = goc.luong || '';
+    Object.assign(F.r, T.nhanPhan(goc, F.r.phan || 1));
+    datChon(goc);
     $('fMon').value = x.mon;
     veKhop();
   }

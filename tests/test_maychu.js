@@ -68,7 +68,16 @@ test('an uong: muc histamine va co da mun luu dung, o trong = chua phan loai, gi
   assert.equal(r['1'].histamine, '2');
   assert.equal(r['1'].nhomBeo, 'omega3');
   assert.equal(r['2'].histamine, ''); // khong bi doc thanh 0
-  assert.equal(tabs.AN_UONG.luoi[0].length, 19);
+  assert.equal(tabs.AN_UONG.luoi[0].length, 20);
+});
+
+test('an uong: luu phan an (it/vua/nhieu); phan vo ly bi chan; dong cu doc ra 0', () => {
+  const { goi } = dungMoiTruong();
+  const kq = goi({ k: K, tu: 0, thay: [gd('1', 1, 450, { phan: 1.5 }), gd('2', 1, 300, { phan: 99 }), gd('3', 1, 300)] });
+  assert.deepEqual(kq.boQua, ['2']);
+  const r = Object.fromEntries(goi({ k: K, tu: -1, thay: [] }).ds.map(x => [x.r.id, x.r]));
+  assert.equal(r['1'].phan, 1.5);
+  assert.equal(r['3'].phan, 0); // app coi 0 = vua
 });
 
 test('Sheet cu thieu cot moi: tu them tieu de cot vao cuoi, dong cu doc ra chua phan loai', () => {
@@ -80,7 +89,7 @@ test('Sheet cu thieu cot moi: tu them tieu de cot vao cuoi, dong cu doc ra chua 
   const r = goi({ k: K, tu: -1, thay: [] }).ds.find(x => x.r.id === 'cu1').r; // tu khac rev de may chu doc Sheet
   assert.equal(r.histamine, '');
   assert.equal(t.luoi[0][14], 'histamine');
-  assert.equal(t.luoi[0].length, 19);
+  assert.equal(t.luoi[0].length, 20);
 });
 
 test('hai may: may A ghi, may B keo ve dung', () => {

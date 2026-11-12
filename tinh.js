@@ -133,28 +133,36 @@
     const df = coDau ? cm.df : cm.dfKd;
     const w = t => Math.log(1 + cm.n / (df[t] || 0.5));
     // Chu khong co trong ten mon nao ("nhà làm", "ngon") thi bo qua, khong keo diem xuong
-    const tongQ = [...new Set(q)].filter(t => df[t]).reduce((s, t) => s + w(t), 0);
+    const qBiet = [...new Set(q)].filter(t => df[t]);
+    const tongQ = qBiet.reduce((s, t) => s + w(t), 0);
+    const tuOf = x => x.ct;
     if (!tongQ) return { kq: 'khong', chon: null, ungVien: [] };
     const ds = [];
     for (const x of cm.mon) {
       const tu = coDau ? x.tu : x.kd;
       const ten = coDau ? x.ten : x.tenKd;
-      if (ten.trim() === q.join(' ')) { ds.push({ m: x.m, d: 1e6 }); continue; } // trung ten
+      if (ten.trim() === q.join(' ')) { ds.push({ m: x.m, d: 1e6, ct: x }); continue; } // trung ten
       let khop = 0;
       for (const t of new Set(q)) if (tu.includes(t)) khop += w(t);
-      if (!khop || khop < tongQ * 0.5) continue; // phan lon tu khoa phai co trong ten mon
+      if (!khop || khop < tongQ * (tu[0] === q[0] ? 0.4 : 0.5)) continue; // phan lon tu khoa phai co trong ten mon (cung loai mon thi nhe tay hon)
       const tongX = [...new Set(tu)].reduce((s, t) => s + w(t), 0);
       // Cac tu lien nhau dung thu tu nhu trong ten mon ("thịt kho") duoc cong them
       let lien = 0;
       for (let i = 0; i + 1 < q.length; i++) if (ten.includes(` ${q[i]} ${q[i + 1]} `)) lien += 0.5 * (w(q[i]) + w(q[i + 1]));
       // Ten mon Viet mo dau bang loai mon (canh, bun, pho...): chu dau trung nhau duoc cong them
       if (tu[0] === q[0] && df[q[0]]) lien += 0.5 * w(q[0]);
-      ds.push({ m: x.m, d: (khop + lien) * (0.6 + 0.4 * khop / tongX) * (khop / tongQ) }); // thieu tu da go thi bi tru
+      ds.push({ ct: x, m: x.m, d: (khop + lien) * (0.6 + 0.4 * khop / tongX) * (khop / tongQ) }); // thieu tu da go thi bi tru
     }
     ds.sort((a, b) => b.d - a.d);
     if (!ds.length) return { kq: 'khong', chon: null, ungVien: [] };
+    if (ds[0].d >= 1e6) return { kq: 'ro', chon: ds[0].m, ungVien: ds.slice(1, 4).map(x => x.m) }; // go dung ten mon
+    // Mon co DU cac chu da go (vd "thịt heo" -> moi cach che bien thit heo): 1 mon thi chon luon, nhieu mon thi bay het ra
+    const coDu = ds.filter(x => qBiet.every(t => (coDau ? tuOf(x).tu : tuOf(x).kd).includes(t)));
+    if (coDu.length === 1) return { kq: 'ro', chon: coDu[0].m, ungVien: ds.filter(x => x !== coDu[0]).slice(0, 3).map(x => x.m) };
+    if (coDu.length > 1 && coDu[1].d < coDu[0].d * 0.6) return { kq: 'ro', chon: coDu[0].m, ungVien: coDu.slice(1, 40).map(x => x.m) }; // 1 mon noi han
+    // Xep theo ten de cung loai dung canh nhau (Thit heo ba chi..., Thit heo nac...)
+    if (coDu.length > 1) return { kq: 'mo', chon: null, ungVien: coDu.slice(0, 40).map(x => x.m).sort((a, b) => a.mon.localeCompare(b.mon, 'vi')) };
     // Chu dau la loai mon ("canh rau củ"): mon diem cao nhat khong co chu do ma co mon khac mo dau dung chu do -> hoi lai
-    const tuOf = x => cm.mon.find(y => y.m === x.m) || { tu: [], kd: [] };
     const dauCua = x => (coDau ? tuOf(x).tu : tuOf(x).kd);
     const dungLoai = ds.find(x => dauCua(x)[0] === q[0]);
     if (dungLoai && ds[0] !== dungLoai && !dauCua(ds[0]).includes(q[0]) && ds[0].d < 1e6) {
@@ -164,9 +172,23 @@
     return { kq: 'mo', chon: null, ungVien: ds.filter(x => x.d >= ds[0].d * RO).slice(0, 6).map(x => x.m) };
   };
 
+  // ---- Phan an: it / vua / nhieu. Ban ghi luu so da nhan theo phan; dong cu khong co phan = 1 ----
+  T.PHAN = [[0.5, 'Ít'], [1, 'Vừa'], [1.5, 'Nhiều']];
+  T.tenPhan = p => (T.PHAN.find(x => x[0] === (p || 1)) || [0, `${p} phần`])[1];
+  const lam = (t, v) => (t === 'kcal' ? Math.round(v) : Math.round(v * 10) / 10);
+  T.nhanPhan = (x, phan) => Object.fromEntries(['kcal', 'dam', 'bot', 'beo'].map(t => [t, lam(t, (x[t] || 0) * phan)]));
+  // So lieu 1 phan "vua" cua mon tung an (de goi y/tu dien lai dung muc)
+  T.coBan = x => ({ ...x, ...T.nhanPhan(x, 1 / (x.phan || 1)), phan: 1 });
+
+  // Gop kho mon goc va kho bien the; trung ten thi giu mon trong kho goc.
+  T.gopDanhMuc = (goc, them) => {
+    const co = new Set(goc.map(m => m.mon.trim().toLowerCase()));
+    return goc.concat(them.filter(m => !co.has(m.mon.trim().toLowerCase())));
+  };
+
   // Nguon tra cuu = mon tung an (so lieu cua chinh minh, uu tien) + danh muc. Trung ten thi giu mon tung an.
   T.nguonMon = (dsAn, danhMuc) => {
-    const cu = T.monCu(dsAn);
+    const cu = T.monCu(dsAn).map(T.coBan);
     const daCo = new Set(cu.map(x => x.mon.trim().toLowerCase()));
     return cu.concat(danhMuc.filter(m => !daCo.has(m.mon.trim().toLowerCase())));
   };
@@ -181,8 +203,9 @@
     for (const x of dsAnNgay) {
       const d = T.diemMon(x);
       if (d === null) { chuaPhanLoai++; continue; }
-      bua[x.bua] = (bua[x.bua] || 0) + d;
-      tong += d;
+      const dp = d * (x.phan || 1); // an nhieu thi diem nhieu
+      bua[x.bua] = (bua[x.bua] || 0) + dp;
+      tong += dp;
       if (String(x.histamine) === '2') coCao++;
     }
     return { bua, tong, chuaPhanLoai, coCao };
