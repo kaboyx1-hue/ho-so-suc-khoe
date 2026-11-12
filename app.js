@@ -1105,8 +1105,12 @@ const LAM = {
     if (K.che === 'canLink') {
       const s = $('kLink').value;
       if (!s.trim()) { $('kLink').focus(); return; }
-      if (!docLink(s)) { canLink('Link vừa dán không đúng, hãy chép lại cả link'); return; }
-      location.hash = s.trim().split('#').pop();
+      const lk = docLink(s.trim());
+      if (!lk) { canLink('Link vừa dán không đúng, hãy chép lại cả link'); return; }
+      // Mo thang, khong cho su kien doi dia chi (dia chi trung link cu thi su kien khong chay -> bam khong thay gi)
+      S.lk = lk; luuKho();
+      history.replaceState(history.state, '', '#' + lk.id + '.' + lk.k);
+      vaoApp(); dongBo();
       return;
     }
     if (K.che.startsWith('nhap')) boP();
