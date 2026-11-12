@@ -799,7 +799,16 @@ const chips = (truong, ds) => `<div class="chips" data-nhom="${truong}">${ds.map
 function khopHtml() {
   const k = F.khop;
   if (!k) return '';
-  if (k.nhieu) return `<p class="khop">Có ${k.nhieu} món. Bấm <b>Xem lại</b> để kiểm từng món trước khi lưu.</p>`;
+  if (k.nhieu) {
+    // Nhieu mon: hien ngay tung mon nhan ra la gi, chon it/vua/nhieu tung mon o buoc Xem lai
+    const dong = T.tachMon(F.r.mon).map(go => {
+      const kk = T.khopMon(go, F.cm);
+      const m = kk.kq === 'ro' ? kk.chon : null;
+      return `<div class="xemlai"><b>${esc(m ? m.mon : go)}</b>${m ? `<div class="phu">${[m.luong, m.kcal ? T.hienSo(m.kcal) + ' kcal' : ''].filter(Boolean).map(esc).join(' · ')}</div><div>${hisHtml(T.coMon(m))} ${coHtml(T.coMon(m))}</div>`
+        : `<div class="phu canh">${kk.kq === 'mo' ? 'Có vài món gần giống, chọn ở bước Xem lại' : 'Chưa nhận diện, vẫn lưu được'}</div>`}</div>`;
+    }).join('');
+    return `<p class="khop">Bữa này có ${k.nhieu} món:</p>${dong}<p class="khop">Bấm <b>Xem lại</b> để chọn Ít/Vừa/Nhiều từng món rồi lưu.</p>`;
+  }
   if (F.chon) return `<p class="khop">Đã nhận diện: <b>${esc(F.chon.mon)}</b> ${hisHtml(T.coMon(F.chon))} ${coHtml(T.coMon(F.chon))}
       ${k.ungVien.length ? '<button type="button" data-lam="doiMon">Đổi</button>' : ''}</p>${k.moDoi ? chonMonHtml(k.ungVien, 'chonmon') : ''}`;
   if (k.kq === 'mo') return `<p class="khop">Bạn muốn ghi món nào?</p>${chonMonHtml(k.ungVien, 'chonmon')}`;
@@ -817,12 +826,12 @@ const FORM = {
     return chips('bua', BUA.map(([v, n, i]) => [v, n.replace('Ăn vặt, đồ uống', 'Ăn vặt'), i])) +
       (F.moi && cu.length ? `<div class="moncu">${cu.map(x => `<button type="button" data-moncu="${esc(x.id)}">${esc(x.mon)}${x.kcal ? ' · ' + T.hienSo(x.kcal) : ''}</button>`).join('')}</div>` : '') +
       `<label class="o"><span>Món ăn (nhiều món thì cách nhau bằng dấu phẩy)</span><input data-truong="mon" id="fMon" value="${esc(F.r.mon)}" placeholder="Ví dụ: Cơm, thịt kho tàu, rau muống" maxlength="400" autocomplete="off"></label>
-      ${F.moi ? '' : '<button type="button" class="lienket" data-lam="themVaoBua">+ Thêm món khác vào bữa này</button>'}
+      ${F.moi ? '<button type="button" class="lienket" data-lam="themMonO">+ Thêm món</button>' : '<button type="button" class="lienket" data-lam="themVaoBua">+ Thêm món khác vào bữa này</button>'}
       <div id="fKhop">${khopHtml()}</div>
-      <div class="o"><span>Ăn ít hay nhiều? (Vừa = 1 phần như cột Lượng)</span></div>${phanHtml(F.r.phan, 'data-phan')}
+      <div id="fMot" ${F.khop && F.khop.nhieu ? 'hidden' : ''}><div class="o"><span>Ăn ít hay nhiều? (Vừa = 1 phần như cột Lượng)</span></div>${phanHtml(F.r.phan, 'data-phan')}
       <div id="fSo"><div class="hang2">${oChu('luong', 'Lượng', '1 tô, 200g…')}${oSo('kcal', 'Calo', 'kcal')}</div>
       <details ${F.r.dam || F.r.bot || F.r.beo ? 'open' : ''}><summary>Đạm, tinh bột, chất béo</summary>
-        <div class="hang3">${oSo('dam', 'Đạm', 'g')}${oSo('bot', 'Tinh bột', 'g')}${oSo('beo', 'Béo', 'g')}</div></details></div>
+        <div class="hang3">${oSo('dam', 'Đạm', 'g')}${oSo('bot', 'Tinh bột', 'g')}${oSo('beo', 'Béo', 'g')}</div></details></div></div>
       ${oNgayGio()}${oChu('ghi', 'Ghi chú', 'Cảm thấy thế nào sau khi ăn…')}`;
   },
   // Xem lai truoc khi luu nhieu mon: moi mon 1 dong, mon mo ho phai chon, tong ca bua o cuoi.
@@ -949,6 +958,7 @@ function doiPhan(moi) {
 }
 function veKhop() {
   $('fKhop').innerHTML = khopHtml();
+  $('fMot').hidden = !!(F.khop && F.khop.nhieu);
   $('hop').querySelector('.luu').textContent = F.khop && F.khop.nhieu ? 'Xem lại' : 'Lưu';
   for (const t of ['luong', 'kcal', 'dam', 'bot', 'beo']) {
     const o = $('fThan').querySelector(`[data-truong="${t}"]`);
@@ -1139,6 +1149,12 @@ const LAM = {
   themKs() { moHop('ks'); },
   suaHs() { moHop('hs', S.hs.toi); },
   themDa() { moHop('da'); },
+  themMonO() {
+    const o = $('fMon');
+    if (o.value.trim() && !/,\s*$/.test(o.value)) o.value = o.value.trim() + ', ';
+    o.focus();
+    o.setSelectionRange(o.value.length, o.value.length);
+  },
   themVaoBua() {
     const o = $('fMon');
     o.value = o.value.replace(/[\s,]+$/, '') + ', ';
