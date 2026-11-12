@@ -1278,6 +1278,8 @@ document.addEventListener('visibilitychange', () => {
     return;
   }
   if (S.lk && P && $('khoa').hidden) moKhoa('nhap'); // hien man mat ma truoc roi moi bo che, khong lo du lieu
+  // Quay lai app: hoi xem co ban moi khong; co thi sw moi nam quyen -> tai lai ngay o man khoa (phan ghi do da giu)
+  if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
   document.body.classList.remove('che');
   if (ngay > T.homNay()) ngay = T.homNay();
   veAnToan();
