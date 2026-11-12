@@ -1116,16 +1116,14 @@ document.addEventListener('keydown', e => {
 });
 window.addEventListener('online', () => { trangThai.loi = ''; dongBo(); });
 window.addEventListener('storage', e => { if (e.key === KHOA_KHO) { S = docKho(); ve(); } });
-// Roi app thi che man hinh; quay lai sau 1 phut phai nhap lai mat ma.
-let lucAn = 0;
+// Roi app (tat man hinh, chuyen app khac) thi che man hinh; quay lai luon phai nhap mat ma, nhu khoa iPhone.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    lucAn = Date.now();
     if (S.lk && P) document.body.classList.add('che');
     return;
   }
+  if (S.lk && P && $('khoa').hidden) moKhoa('nhap'); // hien man mat ma truoc roi moi bo che, khong lo du lieu
   document.body.classList.remove('che');
-  if (S.lk && P && $('khoa').hidden && Date.now() - lucAn > 60000) moKhoa('nhap');
   if (ngay > T.homNay()) ngay = T.homNay();
   veAnToan();
   dongBo();
