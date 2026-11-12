@@ -281,3 +281,15 @@ test('moPin: may moi khong co link, nhap dung mat ma thi nhan khoa + the; sai th
   assert.equal(goi({ moPin: '246810' }).loi, 'khoaPin'); // dang khoa thi dung cung khong vao
   assert.equal(goi({ thay: [] }).loi, 'khoa'); // khong co moPin thi van phai co khoa
 });
+
+test('moDat: so chua co mat ma thi may dau tien dat duoc va nhan khoa; da co mat ma thi khong ai dat de duoc', () => {
+  const { goi } = dungMoiTruong();
+  assert.equal(goi({ moDat: '12' }).loi, 'mat ma phai du 6 so');
+  const kq = goi({ moDat: '135790' });
+  assert.equal(kq.ok, true);
+  assert.equal(kq.k, K);
+  assert.equal(goi({ moPin: '135790' }).the, kq.the);
+  const lan2 = goi({ moDat: '000000' });
+  assert.equal(lan2.loi, 'da co mat ma');
+  assert.equal(lan2.k, undefined);
+});

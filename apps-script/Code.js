@@ -44,7 +44,8 @@ function xuLy_(goi) {
   const khoa = goi && goi.k;
   // May moi chua co link rieng: nhap dung mat ma thi nhan khoa (sai thi khoa dan, chung voi moi cach nhap mat ma).
   const moPin = goi && goi.moPin !== undefined;
-  if (!moPin && (typeof khoa !== 'string' || !/^[\w-]{32,128}$/.test(khoa))) return { ok: false, loi: 'khoa' };
+  const moDat = goi && goi.moDat !== undefined; // so chua co mat ma: may dau tien dat mat ma (khong can link)
+  if (!moPin && !moDat && (typeof khoa !== 'string' || !/^[\w-]{32,128}$/.test(khoa))) return { ok: false, loi: 'khoa' };
 
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
@@ -54,6 +55,11 @@ function xuLy_(goi) {
     const daCo = kho.getProperty('KHOA');
     if (!daCo) return { ok: false, loi: 'chuaKhoa' };
     const pin = kho.getProperty('PIN');
+    if (moDat) {
+      if (pin) return { ok: false, loi: 'da co mat ma' };
+      if (!pinHopLe_(goi.moDat)) return { ok: false, loi: 'mat ma phai du 6 so' };
+      return { ok: true, the: luuPin_(kho, goi.moDat), k: daCo };
+    }
     if (moPin) {
       const kq = thuPin_(kho, String(goi.moPin), pin);
       return kq.ok ? Object.assign(kq, { k: daCo }) : kq;

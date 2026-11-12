@@ -274,6 +274,7 @@ const LUONG = {
   async moPin(so) {
     let kq;
     try { kq = await goiMay({ moPin: so }); } catch (e) { saiRung('Lần đầu trên máy này cần có mạng'); return; }
+    if (kq.loi === 'chua co mat ma') { K.pin1 = so; moKhoa('dat2', 'Sổ chưa có mật mã. Nhập lại dãy vừa rồi để đặt làm mật mã'); return; }
     if (!kq.ok) { saiRung(chuLoi(kq)); return; }
     S.lk = { id: MAY_ID, k: kq.k };
     luuKho();
@@ -291,9 +292,10 @@ const LUONG = {
   dat1(so) { K.pin1 = so; moKhoa('dat2', 'Nhập lại lần nữa cho chắc'); },
   async dat2(so) {
     if (so !== K.pin1) { moKhoa('dat1', 'Hai lần không giống nhau, hãy đặt lại'); return; }
-    const kq = await goiMay({ datPin: so });
+    const kq = await goiMay(S.lk ? { datPin: so } : { moDat: so });
     K.pin1 = '';
-    if (!kq.ok) { moKhoa('nhapMay', 'Hồ sơ này đã có mật mã'); return; }
+    if (!kq.ok) { if (S.lk) moKhoa('nhapMay', 'Hồ sơ này đã có mật mã'); else vaoApp(); return; }
+    if (!S.lk) { S.lk = { id: MAY_ID, k: kq.k }; luuKho(); }
     await luuP(so, kq.the);
     moApp();
   },
