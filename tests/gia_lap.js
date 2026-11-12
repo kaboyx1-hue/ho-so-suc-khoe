@@ -5,7 +5,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 
-function dungMoiTruong() {
+// khoa: gia lap chu da chay capQuyen (null = so chua co khoa).
+function dungMoiTruong(khoa = 'a'.repeat(40)) {
   const tabs = {};
   const moiTab = ten => {
     const t = {
@@ -13,6 +14,7 @@ function dungMoiTruong() {
       getName: () => t.ten,
       setName: n => { delete tabs[t.ten]; t.ten = n; tabs[n] = t; },
       getLastRow: () => t.luoi.length,
+      getLastColumn: () => Math.max(0, ...t.luoi.map(d => d.length)),
       getMaxRows: () => t.maxHang,
       setFrozenRows() {},
       insertRowsAfter: (sau, n) => { t.maxHang += n; },
@@ -65,7 +67,7 @@ function dungMoiTruong() {
     insertSheet: moiTab,
     getUrl: () => 'x',
   };
-  const prop = {};
+  const prop = khoa ? { KHOA: khoa } : {};
   const ngu = {
     SpreadsheetApp: { getActiveSpreadsheet: () => ss },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in prop ? prop[k] : null), setProperty: (k, v) => { prop[k] = v; }, deleteProperty: k => { delete prop[k]; } }) },

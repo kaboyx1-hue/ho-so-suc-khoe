@@ -5,7 +5,12 @@ const BUA = [['sang', 'Bữa sáng', '🌅'], ['trua', 'Bữa trưa', '☀️'],
 const LOAI_KHAM = [['kham', 'Khám bệnh', '🏥'], ['xetnghiem', 'Xét nghiệm', '🧪'], ['tiem', 'Tiêm chủng', '💉'], ['thuoc', 'Đơn thuốc', '💊']];
 const NHOM_MAU = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const VAN_DONG = [['1.2', 'Ít vận động'], ['1.375', 'Nhẹ, 1–3 buổi/tuần'], ['1.55', 'Vừa, 3–5 buổi/tuần'], ['1.725', 'Nhiều, 6–7 buổi/tuần']];
-const MAU_LOAI = { can: '#2f80ed', huyetap: '#e03131', duong: '#c2255c', nhip: '#f03e3e', spo2: '#1098ad', nhiet: '#f76707', ngu: '#7048e8', nuoc: '#1c7ed6', buoc: '#37b24d', eo: '#e69500' };
+const MAU_LOAI = { can: '#2f80ed', da_tran: '#0ca678', da_mui: '#e8590c', da_ma: '#c2255c', da_cam: '#7048e8', phong: '#868e96' };
+const MAU_AM = '#1c7ed6', MAU_NHON = '#e69500', MAU_HIS = '#e03131';
+const KHOA_SAI = 'hssk_pinsai';
+const MON = (typeof MON_AN_HISTAMINE !== 'undefined' && MON_AN_HISTAMINE) || [];
+const HIS_CHU = ['His thấp', 'His trung bình', 'His cao'];
+const MIEN_TRU_HIS = 'Điểm histamine chỉ là ước lượng tương đối (món thấp 0, trung bình 1, cao 3), không phải số đo y khoa. Không có ngưỡng chuẩn chung: mức chịu đựng khác nhau theo từng người. Mức của đa số món Việt là suy ra theo nguyên liệu, chưa được đo trực tiếp.';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -14,7 +19,8 @@ const GIAM = matchMedia('(prefers-reduced-motion:reduce)');
 
 // ---- Luu tren may ----
 let S = docKho();
-let tab = 'tq', ngay = T.homNay(), loaiCs = 'can';
+let tab = 'tq', ngay = T.homNay(), loaiCs = 'can', vungDa = '';
+const LOAI_XEM = ['can', 'da']; // tab Chi so: can nang, da (gom 4 vung + phong)
 let F = null; // muc dang mo trong hop nhap: { b, moi, r }
 let trangThai = { dang: false, loi: '', luc: 0 };
 let huong = 0;
@@ -89,7 +95,7 @@ async function dongBo() {
       moKhoa('nhapMay', 'Mật mã đã đổi ở máy khác, hãy nhập mật mã mới');
       return;
     }
-    if (!kq.ok) throw new Error(kq.loi === 'khoa' ? 'Link riêng không đúng, nhờ mở lại đúng link' : kq.loi);
+    if (!kq.ok) throw new Error(kq.loi === 'khoa' ? 'Link riêng không đúng, nhờ mở lại đúng link' : chuLoi(kq));
 
     const biTuChoi = new Set(kq.boQua || []);
     let daNhan = 0;
@@ -98,6 +104,12 @@ async function dongBo() {
       if (S[m.b][m.r.id].sua === m.r.sua && !biTuChoi.has(m.r.id)) { delete S.ban[m.b + ':' + m.r.id]; daNhan++; }
     }
     for (const m of kq.ds) if (S[m.b]) T.gop(S[m.b], m.r);
+    // Ban vua gui cu hon ban may khac sua sau (vd dong ho may nay cham): may chu giu ban kia, bao cho biet.
+    const cu = (kq.cu || []).map(x => S[x.b] && S[x.b][x.id]).filter(Boolean);
+    if (cu.length) {
+      console.warn('Xung dot dong bo, giu ban cua may khac:', kq.cu);
+      bao(`${cu.length} mục vừa được sửa ở máy khác sau bạn, app giữ bản mới hơn: ${cu.slice(0, 3).map(tenMuc).join(', ')}`, null, true);
+    }
     S.tu = kq.tu;
     luuKho();
     trangThai.loi = biTuChoi.size ? `${biTuChoi.size} mục không lưu được lên Sheet` : '';
@@ -129,7 +141,10 @@ function veDongBo() {
 // ---- Mat ma 6 so (giong Hu Chi Tieu) ----
 let P = null; // { muoi, bam, the }
 try { P = JSON.parse(localStorage.getItem(KHOA_PIN)); } catch (e) { /* hong thi nhap lai qua may chu */ }
-const K = { che: '', so: '', pin1: '', cu: '', sai: 0, ban: false };
+const K = { che: '', so: '', pin1: '', cu: '', ban: false };
+// So lan nhap sai luu trong may: tai lai trang khong dat lai duoc ve 0.
+const soSai = () => Number(localStorage.getItem(KHOA_SAI)) || 0;
+const datSai = n => { try { localStorage.setItem(KHOA_SAI, String(n)); } catch (e) { /* het cho thi thoi */ } };
 const TIEU_DE = {
   nhap: 'Nhập mật mã', nhapMay: 'Nhập mật mã', dat1: 'Đặt mật mã 6 số', dat2: 'Nhập lại mật mã',
   doiCu: 'Nhập mật mã hiện tại', doiMoi1: 'Nhập mật mã mới', doiMoi2: 'Nhập lại mật mã mới',
@@ -169,7 +184,7 @@ function moKhoa(che, chu = '') {
 }
 function moApp() {
   $('khoa').hidden = true;
-  K.che = ''; K.so = ''; K.sai = 0;
+  K.che = ''; K.so = '';
   dongBo();
   ve(true);
 }
@@ -187,6 +202,7 @@ function chuLoi(kq) {
   if (kq.loi === 'saiPin') return `Sai mật mã, còn ${kq.conLai} lần`;
   if (kq.loi === 'khoaPin') return `Sai nhiều lần, thử lại sau ${Math.ceil(kq.doi / 60000)} phút`;
   if (kq.loi === 'khoa') return 'Link riêng không đúng';
+  if (kq.loi === 'chuaKhoa') return 'Sổ chưa có khoá. Vào Apps Script chạy hàm capQuyen';
   return kq.loi || 'Có lỗi, hãy thử lại';
 }
 async function kiemMay(goiY = '') {
@@ -215,17 +231,20 @@ function vaoApp() {
 }
 const LUONG = {
   async nhap(so) {
-    if (await banPin(so, P.muoi) === P.bam) { moApp(); return; }
-    K.sai++;
-    if (K.sai < 5) { saiRung(`Sai mật mã, còn ${5 - K.sai} lần`); return; }
+    if (await banPin(so, P.muoi) === P.bam) { datSai(0); moApp(); return; }
+    const sai = soSai() + 1;
+    datSai(sai);
+    if (sai < 5) { saiRung(`Sai mật mã, còn ${5 - sai} lần`); return; }
+    // Sai 5 lan: bo ban bam tren may, tu gio phai hoi may chu (may chu khoa 15 phut, tang dan).
     boP();
-    K.sai = 0;
+    datSai(0);
     moKhoa('nhapMay', 'Sai 5 lần. Cần có mạng để kiểm tra lại mật mã.');
   },
   async nhapMay(so) {
     const kq = await goiMay({ pin: so });
     if (!kq.ok) { saiRung(chuLoi(kq)); return; }
     await luuP(so, kq.the);
+    datSai(0);
     moApp();
   },
   dat1(so) { K.pin1 = so; moKhoa('dat2', 'Nhập lại lần nữa cho chắc'); },
@@ -359,24 +378,31 @@ window.addEventListener('resize', dichViTri);
 const dgHtml = d => (d ? `<span class="dg m${d.muc}">${esc(d.chu)}</span>` : '');
 function giaTri(x) {
   const L = T.LOAI[x.loai];
-  if (!L) return '';
-  if (x.loai === 'huyetap') return `${x.a}/${x.b}`;
+  if (!L) return T.hienSo(x.a || 0, 1);
+  if (L.o.length > 1) return L.o.map((_, i) => (x['ab'[i]] ? `${T.hienSo(x['ab'[i]], L.le)}${L.dv[i]}` : '–')).join(' · ');
   return T.hienSo(x.a, L.le || 0);
 }
+const tenMuc = x => esc(x.mon || (T.LOAI[x.loai] || {}).ten || x.ten || 'Hồ sơ');
+// Muc histamine + co da mun cua 1 mon (huy hieu chu, co la bieu tuong de khong lan voi mau histamine).
+const hisHtml = x => (x.histamine === '' || x.histamine === undefined ? '' : `<span class="dg m${x.histamine}">${HIS_CHU[x.histamine]}</span>`);
+const coHtml = x => [String(x.duongHuyet) === '2' ? ['🍬', 'Tải đường cao'] : null, String(x.suaBo) === '1' ? ['🥛', 'Có sữa bò'] : null,
+  x.nhomBeo === 'omega6' ? ['🍟', 'Nhiều omega-6'] : null, x.nhomBeo === 'omega3' ? ['🐟', 'Giàu omega-3'] : null]
+  .filter(Boolean).map(([i, t]) => `<i class="co" title="${t}" aria-label="${t}">${i}</i>`).join('');
+const nguongHis = () => (hoSo() || {}).mucHistamine || 0;
 const iconBua = b => (BUA.find(x => x[0] === b) || BUA[3])[2];
 
 function dongAn(x) {
   const phu = [x.luong, x.dam || x.bot || x.beo ? `Đạm ${x.dam || 0}g · Bột ${x.bot || 0}g · Béo ${x.beo || 0}g` : '', x.ghi].filter(Boolean).join(' · ');
   return `<button class="dong" data-sua="an:${esc(x.id)}"><span class="oh" style="--n:#fff3e0;--m:#f97316">${iconBua(x.bua)}</span>
-    <span class="giua"><div class="ten">${esc(x.mon)}</div><div class="phu">${esc(x.gio ? x.gio + (phu ? ' · ' + phu : '') : phu)}</div></span>
-    <span class="so">${x.kcal ? T.hienSo(x.kcal) + ' kcal' : ''}</span></button>`;
+    <span class="giua"><div class="ten">${esc(x.mon)} ${coHtml(x)}</div><div class="phu">${esc(x.gio ? x.gio + (phu ? ' · ' + phu : '') : phu)}</div></span>
+    <span class="so">${x.kcal ? T.hienSo(x.kcal) + ' kcal' : ''}${hisHtml(x)}</span></button>`;
 }
 function dongCs(x) {
-  const L = T.LOAI[x.loai] || { ten: x.loai, icon: '•', dv: '' };
-  const phu = [x.gio, x.loai === 'huyetap' && x.c ? `nhịp ${x.c}` : '', x.ghi].filter(Boolean).join(' · ');
+  const L = T.LOAI[x.loai] || { ten: x.loai, icon: '•', o: [''], dv: [''] };
+  const phu = [x.gio, x.ghi].filter(Boolean).join(' · ');
   return `<button class="dong" data-sua="cs:${esc(x.id)}"><span class="oh" style="--n:${MAU_LOAI[x.loai] || '#888'}1c;--m:${MAU_LOAI[x.loai] || '#888'}">${L.icon}</span>
     <span class="giua"><div class="ten">${esc(L.ten)}</div><div class="phu">${esc(phu)}</div></span>
-    <span class="so">${giaTri(x)} <small>${esc(L.dv)}</small>${dgHtml(T.danhGia(x.loai, x.a, x.b))}</span></button>`;
+    <span class="so">${giaTri(x)}${L.o.length === 1 ? ` <small>${esc(L.dv[0])}</small>` : ''}</span></button>`;
 }
 function dongKs(x) {
   const l = LOAI_KHAM.find(k => k[0] === x.loai) || LOAI_KHAM[0];
@@ -385,14 +411,32 @@ function dongKs(x) {
     <span class="giua"><div class="ten">${esc(x.ten || l[1])}</div><div class="phu">${esc(phu)}</div></span></button>`;
 }
 
+// Khoi diem histamine ngay: diem tho, nguong neu tu dat, vuot thi canh bao do.
+function khoiHis(an, nho) {
+  const d = T.diemNgay(an);
+  const ng = nguongHis();
+  const vuot = ng && d.tong > ng;
+  const vach = ng ? `<div class="vach"><i class="${vuot ? 'vuot' : ''}" style="width:${Math.min(100, d.tong / ng * 100)}%"></i></div>` : '';
+  return { d, ng, vuot, html: `<div class="nuoc his"><span>🧪 Histamine ước lượng <b>${dem(d.tong)}</b>${ng ? ` / ${ng}` : ''}</span>${vach}
+      ${nho ? '' : vuot ? '<span class="dg m2">Vượt ngưỡng</span>' : ''}</div>` };
+}
+// Can goi y mon nhe khi: da dat nguong va diem tu 80% nguong; chua dat nguong thi khi da co mon muc cao.
+const canGoiY = k => (k.ng ? k.d.tong >= k.ng * 0.8 : k.d.coCao > 0);
+function khoiGoiY() {
+  const gy = T.goiYCanBang(ds('an'), MON, 8);
+  if (!gy.length) return '';
+  return `<section class="the"><h2>Gợi ý cho bữa tiếp theo<small>món histamine thấp</small></h2>
+      <div class="moncu boc" style="margin:0">${gy.map(m => `<button type="button" data-ghimon="${esc(m.mon)}">${esc(m.mon)}</button>`).join('')}</div>
+      <p class="ghichu">Chỉ là gợi ý, món bạn từng ăn được xếp trước. Bấm một món để ghi nhanh.</p></section>`;
+}
+
 function veHomNay() {
   const hs = hoSo();
   const kg = canNang();
   const an = T.anTrongNgay(ds('an'), ngay);
   const tong = T.tongAn(an);
   const can = T.kcalCan(hs, kg, T.homNay());
-  const nuoc = T.congNgay2(ds('cs'), 'nuoc', ngay);
-  const nuocCan = T.nuocCan(hs, kg);
+  const his = khoiHis(an);
   const p = can ? Math.min(100, tong.kcal / can * 100) : 0;
   const vong = `<div class="vongbox"><svg viewBox="0 0 120 120" aria-hidden="true">
       <circle class="nen" cx="60" cy="60" r="52" pathLength="100"/>
@@ -402,13 +446,13 @@ function veHomNay() {
     ? `<div>Mục tiêu<b>${dem(can)} kcal</b></div><div>${tong.kcal > can ? 'Đã vượt' : 'Còn ăn được'}<b>${dem(Math.abs(can - tong.kcal))} kcal</b></div>`
     : `<div>Điền chiều cao, ngày sinh, giới tính và cân nặng để app tính lượng calo nên ăn mỗi ngày.</div><button data-lam="suaHs">Điền hồ sơ</button>`;
 
-  const oCs = ['can', 'huyetap', 'duong', 'nhip', 'ngu', 'spo2', 'nhiet', 'eo'].map(l => {
+  const oCs = ['can', ...T.VUNG_DA].map(l => {
     const x = T.moiNhat(ds('cs'), l);
     if (!x) return '';
     const L = T.LOAI[l];
-    const dg = l === 'can' ? T.bmi(x.a, hs && hs.cao) : T.danhGia(l, x.a, x.b);
-    return `<button class="ocs" style="--m:${MAU_LOAI[l]}" data-xemcs="${l}"><span class="nhan">${L.icon} ${L.ten}</span>
-      <b>${giaTri(x)} <small>${L.dv}</small></b>${l === 'can' && dg ? `<span class="dg m${dg.muc}">BMI ${T.hienSo(dg.so, 1)} · ${dg.chu}</span>` : dgHtml(dg)}</button>`;
+    const dg = l === 'can' ? T.bmi(x.a, hs && hs.cao) : null;
+    return `<button class="ocs" style="--m:${MAU_LOAI[l]}" data-xemcs="${l === 'can' ? 'can' : 'da'}" data-vung="${l}"><span class="nhan">${L.icon} ${L.ten}</span>
+      <b>${giaTri(x)}${l === 'can' ? ` <small>${L.dv[0]}</small>` : ''}</b>${l === 'can' ? `<span class="dg m${dg ? dg.muc : 0}">${dg ? `BMI ${T.hienSo(dg.so, 1)} · ${dg.chu}` : ''}</span>` : `<span class="nhan">ẩm · nhờn · ${tenNgay(x.ngay)}</span>`}</button>`;
   }).join('');
 
   const luuY = hs && (hs.diUng || hs.benh) ? `<section class="the khancap"><h2>⚠️ Lưu ý sức khoẻ</h2>
@@ -417,20 +461,21 @@ function veHomNay() {
 
   return `<section class="hero">
       <div class="vongcal">${vong}<div class="calben">${ben}</div></div>
-      <div class="nuoc"><span>💧 ${dem(nuoc)}/${T.hienSo(nuocCan)} ml</span>
-        <div class="vach"><i style="width:${Math.min(100, nuoc / nuocCan * 100)}%"></i></div>
-        <button data-lam="themNuoc">+250 ml</button></div>
+      ${his.html}
     </section>
     <section class="nhanhbon">
       <button data-lam="themAn" style="--n:#fff0e6;--m:#f97316"><span>🍽️</span>Bữa ăn</button>
       <button data-themcs="can" style="--n:#e7f0ff;--m:#2f80ed"><span>⚖️</span>Cân nặng</button>
-      <button data-themcs="huyetap" style="--n:#ffeaea;--m:#e03131"><span>🩺</span>Huyết áp</button>
+      <button data-lam="themDa" style="--n:#e6f7f0;--m:#0ca678"><span>🧴</span>Đo da</button>
       <button data-lam="themKs" style="--n:#eef2ff;--m:#7c3aed"><span>🏥</span>Khám, tiêm</button>
     </section>
+    ${his.vuot ? `<section class="the canhbao"><span class="dg m2">Điểm histamine hôm nay ${his.d.tong} đã vượt ngưỡng ${his.ng} bạn tự đặt</span>
+      <p class="ghichu">${MIEN_TRU_HIS}</p></section>` : ''}
+    ${canGoiY(his) ? khoiGoiY() : ''}
     <section class="the"><h2>Ăn uống ${ngay === T.homNay() ? 'hôm nay' : 'ngày ' + ddmm(ngay)}<button data-tab="an">Xem chi tiết</button></h2>
-      ${an.length ? `<div class="nhom">${an.map(dongAn).join('')}</div>` : '<div class="trong"><span>🥗</span>Chưa ghi bữa nào. Bấm dấu + để ghi món vừa ăn.</div>'}</section>
+      ${an.length ? `<div class="nhom">${an.map(dongAn).join('')}</div>` : '<div class="trong"><span>🥗</span>Chưa ghi bữa nào. Bấm dấu + để ghi món vừa ăn. Gõ nhiều món cách nhau bằng dấu phẩy.</div>'}</section>
     <section class="the"><h2>Chỉ số gần nhất<button data-tab="cs">Tất cả</button></h2>
-      ${oCs ? `<div class="oluoi">${oCs}</div>` : '<div class="trong"><span>📈</span>Chưa có chỉ số nào. Bắt đầu bằng cân nặng hoặc huyết áp.</div>'}</section>
+      ${oCs ? `<div class="oluoi">${oCs}</div>` : '<div class="trong"><span>📈</span>Chưa có chỉ số nào. Bắt đầu bằng cân nặng hoặc đo da.</div>'}</section>
     ${luuY}`;
 }
 
@@ -442,10 +487,15 @@ function veAn() {
   const g = tong.dam + tong.bot + tong.beo;
   const vach = g ? `<div class="vach"><i style="width:${tong.dam / g * 100}%;background:#e8590c"></i><i style="width:${tong.bot / g * 100}%;background:#f2c94c"></i><i style="width:${tong.beo / g * 100}%;background:#2f80ed"></i></div>` : '';
 
+  const his = khoiHis(an, true);
+  const co = T.coDaNgay(an);
+  const dongCo = [['🍬', 'tải đường cao', co.duongCao], ['🥛', 'có sữa bò', co.suaBo], ['🍟', 'nhiều omega-6', co.omega6], ['🐟', 'giàu omega-3', co.omega3]]
+    .filter(x => x[2]).map(([i, t, n]) => `<span>${i} ${n} món ${t}</span>`).join('');
   const nhom = BUA.map(([b, ten, icon]) => {
     const mon = an.filter(x => x.bua === b);
     const k = mon.reduce((s, x) => s + (x.kcal || 0), 0);
-    return `<div class="bua"><span>${icon} ${ten} ${k ? `<small>· ${T.hienSo(k)} kcal</small>` : ''}</span><button data-thembua="${b}">+ Thêm</button></div>
+    const d = his.d.bua[b];
+    return `<div class="bua"><span>${icon} ${ten} ${k ? `<small>· ${T.hienSo(k)} kcal</small>` : ''}${d ? ` <small>· 🧪 ${d}</small>` : ''}</span><button data-thembua="${b}">+ Thêm</button></div>
       ${mon.length ? `<div class="nhom">${mon.map(dongAn).join('')}</div>` : ''}`;
   }).join('');
 
@@ -463,13 +513,20 @@ function veAn() {
         <div style="--n:#fff8db;--m:#c99700"><b>${dem(tong.bot)}g</b>Tinh bột</div>
         <div style="--n:#e7f0ff;--m:#2f80ed"><b>${dem(tong.beo)}g</b>Chất béo</div>
       </div>${vach}</section>
+    <section class="the"><h2>Histamine và da trong ngày</h2>${his.html}
+      ${his.vuot ? `<p><span class="dg m2">Vượt ngưỡng ${his.ng} bạn tự đặt</span></p>` : ''}
+      ${!his.ng ? '<p class="ghichu">Đặt ngưỡng ở Hồ sơ nếu muốn được báo khi vượt mức. Hãy chọn số theo cảm nhận cơ thể của bạn qua thời gian.</p>' : ''}
+      ${his.d.chuaPhanLoai ? `<p class="ghichu">${his.d.chuaPhanLoai} món chưa nhận diện được mức histamine nên không tính điểm.</p>` : ''}
+      ${dongCo ? `<div class="dongco">${dongCo}</div>` : ''}
+      <p class="ghichu">${MIEN_TRU_HIS} Biểu tượng 🍬🥛🍟🐟 là các yếu tố có nghiên cứu liên quan tới mụn và da dầu, tách riêng khỏi histamine.</p></section>
+    ${canGoiY(his) && ngay === T.homNay() ? khoiGoiY() : ''}
     <section>${nhom}</section>
     <section class="the" style="margin-top:14px"><h2>Calo 7 ngày<small>${trungBinh.length ? 'TB ' + T.hienSo(trungBinh.reduce((a, b) => a + b, 0) / trungBinh.length) + ' kcal' : ''}</small></h2>
       <div class="cot">${can ? `<span class="muc" style="bottom:${can / max * 100}%" title="Mục tiêu"></span>` : ''}${cot}</div>
       <div class="truc">${ngays.map(n => `<span>${n.slice(8, 10)}</span>`).join('')}</div></section>`;
 }
 
-// Bieu do duong cho 1 hoac 2 chuoi so (huyet ap co 2 duong)
+// Bieu do duong cho 1 chuoi so (can nang)
 function veDuong(chuoi, mau) {
   const tat = chuoi.flat();
   if (chuoi[0].length < 2) return '';
@@ -487,42 +544,51 @@ function veDuong(chuoi, mau) {
     <text x="${W}" y="12" text-anchor="end">${T.hienSo(lon, 1)}</text><text x="${W}" y="${H - 2}" text-anchor="end">${T.hienSo(nho, 1)}</text></svg>`;
 }
 
-function veCs() {
-  const L = T.LOAI[loaiCs];
-  const locs = `<div class="locs">${Object.entries(T.LOAI).map(([k, v]) =>
-    `<button class="loc ${k === loaiCs ? 'on' : ''}" data-loaics="${k}">${v.icon} ${v.ten}</button>`).join('')}</div>`;
-  const tat = T.csLoai(ds('cs'), loaiCs);
-  const mau = MAU_LOAI[loaiCs];
-  let dau;
-  if (L.cong) {
-    // Nuoc, buoc chan: cong theo ngay, xem 14 ngay gan nhat
-    const ngays = Array.from({ length: 14 }, (_, i) => T.congNgay(T.homNay(), i - 13));
-    const theoNgay = ngays.map(n => T.congNgay2(ds('cs'), loaiCs, n));
-    const can = loaiCs === 'nuoc' ? T.nuocCan(hoSo(), canNang()) : 0;
-    const max = Math.max(...theoNgay, can, 1) * 1.1;
-    dau = `<div class="nhan">Hôm nay</div><div class="solon">${T.hienSo(theoNgay[13])} <small>${L.dv}${can ? ' / ' + T.hienSo(can) : ''}</small></div>
-      <div class="cot" style="margin-top:12px">${can ? `<span class="muc" style="bottom:${can / max * 100}%"></span>` : ''}${theoNgay.map((v, i) =>
-        `<i class="${i === 13 ? 'nay' : ''}" style="height:${v ? Math.max(3, v / max * 100) : 0}%" title="${ddmm(ngays[i])}: ${T.hienSo(v)}"></i>`).join('')}</div>
-      <div class="truc"><span>${ddmm(ngays[0])}</span><span>${ddmm(ngays[7])}</span><span>Hôm nay</span></div>`;
-  } else if (tat.length) {
-    const cuoi = tat[tat.length - 1];
-    const hs = hoSo();
-    const dg = loaiCs === 'can' ? T.bmi(cuoi.a, hs && hs.cao) : T.danhGia(loaiCs, cuoi.a, cuoi.b);
-    const gan = tat.slice(-30);
-    const chuoi = loaiCs === 'huyetap' ? [gan.map(x => x.a), gan.map(x => x.b)] : [gan.map(x => x.a)];
-    const truoc = tat.length > 1 ? tat[tat.length - 2] : null;
-    const doi = truoc && loaiCs !== 'huyetap' ? cuoi.a - truoc.a : 0;
-    dau = `<div class="nhan">Lần gần nhất · ${tenNgay(cuoi.ngay)}${cuoi.gio ? ' ' + cuoi.gio : ''}</div>
-      <div class="solon">${giaTri(cuoi)} <small>${L.dv}</small></div>
-      ${loaiCs === 'can' && dg ? `<span class="dg m${dg.muc}">BMI ${T.hienSo(dg.so, 1)} · ${dg.chu}</span>` : dgHtml(dg)}
-      ${doi ? `<span class="nhan"> · ${doi > 0 ? '+' : ''}${T.hienSo(doi, L.le || 0)} so với lần trước</span>` : ''}
-      ${loaiCs === 'can' && !(hs && hs.cao) ? '<p class="ghichu">Điền chiều cao ở Hồ sơ để xem BMI.</p>' : ''}
-      ${veDuong(chuoi, mau)}`;
-  } else {
-    dau = `<div class="trong"><span>${L.icon}</span>Chưa ghi ${L.ten.toLowerCase()} lần nào.</div>`;
-  }
+// Doi chieu theo ngay: do am, do nhon (1 vung) va do am phong (duong), diem histamine (cot) cung truc ngay.
+// Truoc ngay bat dau ghi muc histamine thi khong ve cot, ke vach danh dau.
+function veDoiChieu(vung) {
+  // Truc ngay tu lan dau co so lieu (da hoac histamine), toi thieu 14, toi da 30 ngay
+  const dau = [T.ngayBatDauHis(ds('an')), ...T.csLoai(ds('cs'), vung).map(x => x.ngay)].filter(Boolean).sort()[0] || T.homNay();
+  let soNgay = 1;
+  while (soNgay < 30 && T.congNgay(T.homNay(), -soNgay + 1) > dau) soNgay++;
+  soNgay = Math.max(14, soNgay);
+  const ngays = Array.from({ length: soNgay }, (_, i) => T.congNgay(T.homNay(), i - soNgay + 1));
+  const tb = (loai, o, n) => {
+    const v = ds('cs').filter(x => !x.xoa && x.loai === loai && x.ngay === n && x[o]).map(x => x[o]);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const am = ngays.map(n => tb(vung, 'a', n)), nhon = ngays.map(n => tb(vung, 'b', n)), phong = ngays.map(n => tb('phong', 'b', n));
+  const batDau = T.ngayBatDauHis(ds('an'));
+  const his = ngays.map(n => (batDau && n >= batDau ? T.diemNgay(T.anTrongNgay(ds('an'), n)).tong : null));
+  const soDo = [...am, ...nhon].filter(v => v !== null);
+  if (!soDo.length) return '';
+  const W = 320, H = 150, DAY = 112; // phan tren cho duong %, 30px duoi cho cot histamine
+  const tatPt = [...soDo, ...phong.filter(v => v !== null)];
+  let nho = Math.min(...tatPt), lon = Math.max(...tatPt);
+  if (lon - nho < 10) { nho -= 5; lon += 5; }
+  const x = i => 6 + i / (soNgay - 1) * (W - 40);
+  const y = v => 6 + (1 - (v - nho) / (lon - nho)) * (DAY - 12);
+  // Noi cac lan do (khong do moi ngay), moi lan do co 1 cham
+  const duong = (c, mau, them = '') => {
+    const d = c.map((v, i) => (v === null ? null : [x(i).toFixed(1), y(v).toFixed(1)])).filter(Boolean);
+    return (d.length > 1 ? `<polyline class="vet" pathLength="1" stroke="${mau}" ${them} points="${d.map(p => p.join(',')).join(' ')}"/>` : '') +
+      (them ? '' : d.map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="2.6" fill="${mau}"/>`).join(''));
+  };
+  const maxHis = Math.max(3, ...his.filter(v => v !== null));
+  const cw = (W - 40) / soNgay * 0.6;
+  const cot = his.map((v, i) => (v ? `<rect x="${(x(i) - cw / 2).toFixed(1)}" y="${(H - v / maxHis * 30).toFixed(1)}" width="${cw.toFixed(1)}" height="${(v / maxHis * 30).toFixed(1)}" rx="1.5" fill="${MAU_HIS}" opacity=".7"/>` : '')).join('');
+  const iBd = batDau ? ngays.indexOf(batDau) : -1;
+  const vach = iBd > 0 ? `<line x1="${x(iBd)}" x2="${x(iBd)}" y1="0" y2="${H}" style="stroke:var(--mo)" stroke-dasharray="3 3"/><text x="${x(iBd) + 3}" y="${H - 34}">bắt đầu ghi histamine</text>` : '';
+  return `<svg class="dothi" viewBox="0 0 ${W} ${H}" aria-label="Đối chiếu da với histamine 30 ngày">
+    <line x1="0" x2="${W - 34}" y1="${DAY + 4}" y2="${DAY + 4}" style="stroke:var(--mo);opacity:.25"/>${cot}${vach}
+    ${duong(phong, '#adb5bd', 'stroke-dasharray="4 3" stroke-width="1.5"')}${duong(am, MAU_AM)}${duong(nhon, MAU_NHON)}
+    <text x="${W}" y="12" text-anchor="end">${T.hienSo(lon)}%</text><text x="${W}" y="${DAY}" text-anchor="end">${T.hienSo(nho)}%</text>
+</svg>
+    <div class="chuthich"><span style="--m:${MAU_AM}">Độ ẩm da</span><span style="--m:${MAU_NHON}">Độ nhờn da</span><span class="net" style="--m:#adb5bd">Độ ẩm phòng</span><span class="o" style="--m:${MAU_HIS}">Điểm histamine</span></div>
+    <div class="truc"><span>${ddmm(ngays[0])}</span><span>${ddmm(ngays[soNgay >> 1])}</span><span>Hôm nay</span></div>`;
+}
 
-  // Danh sach, moi nhat len dau, nhom theo ngay
+function dsTheoNgay(tat) {
   let ra = '', ngayCu = '', dong = [];
   const dongNgay = () => { if (ngayCu) ra += `<div class="ngay"><span>${tenNgay(ngayCu)}</span></div><div class="nhom">${dong.join('')}</div>`; };
   for (const x of tat.slice().reverse().slice(0, 120)) {
@@ -530,10 +596,56 @@ function veCs() {
     dong.push(dongCs(x));
   }
   dongNgay();
+  return ra;
+}
 
-  return `${locs}<section class="the">${dau}
-      <button class="btn rong" style="margin-top:14px" data-themcs="${loaiCs}">+ Ghi ${L.ten.toLowerCase()}</button>
-      <p class="ghichu">Đánh giá chỉ để tham khảo theo ngưỡng phổ biến, không thay lời khuyên của bác sĩ.</p></section>${ra}`;
+function veCs() {
+  if (!LOAI_XEM.includes(loaiCs)) loaiCs = 'can';
+  const locs = `<div class="locs">${[['can', '⚖️ Cân nặng'], ['da', '🧴 Da']].map(([k, ten]) =>
+    `<button class="loc ${k === loaiCs ? 'on' : ''}" data-loaics="${k}">${ten}</button>`).join('')}</div>`;
+  return locs + (loaiCs === 'da' ? veDa() : veCan());
+}
+
+function veCan() {
+  const L = T.LOAI.can;
+  const tat = T.csLoai(ds('cs'), 'can');
+  let dau;
+  if (tat.length) {
+    const cuoi = tat[tat.length - 1];
+    const hs = hoSo();
+    const dg = T.bmi(cuoi.a, hs && hs.cao);
+    const truoc = tat.length > 1 ? tat[tat.length - 2] : null;
+    const doi = truoc ? cuoi.a - truoc.a : 0;
+    dau = `<div class="nhan">Lần gần nhất · ${tenNgay(cuoi.ngay)}${cuoi.gio ? ' ' + cuoi.gio : ''}</div>
+      <div class="solon">${giaTri(cuoi)} <small>kg</small></div>
+      ${dg ? `<span class="dg m${dg.muc}">BMI ${T.hienSo(dg.so, 1)} · ${dg.chu}</span>` : ''}
+      ${doi ? `<span class="nhan"> · ${doi > 0 ? '+' : ''}${T.hienSo(doi, 1)} so với lần trước</span>` : ''}
+      ${!(hs && hs.cao) ? '<p class="ghichu">Điền chiều cao ở Hồ sơ để xem BMI.</p>' : ''}
+      ${veDuong([tat.slice(-30).map(x => x.a)], MAU_LOAI.can)}`;
+  } else {
+    dau = `<div class="trong"><span>${L.icon}</span>Chưa ghi cân nặng lần nào.</div>`;
+  }
+  return `<section class="the">${dau}
+      <button class="btn rong" style="margin-top:14px" data-themcs="can">+ Ghi cân nặng</button>
+      <p class="ghichu">BMI theo ngưỡng người châu Á, chỉ để tham khảo, không thay lời khuyên của bác sĩ.</p></section>${dsTheoNgay(tat)}`;
+}
+
+function veDa() {
+  const coDo = T.VUNG_DA.filter(v => T.moiNhat(ds('cs'), v));
+  if (!T.VUNG_DA.includes(vungDa)) vungDa = coDo[0] || T.VUNG_DA[0];
+  const chonVung = `<div class="chips" data-vungda="1">${T.VUNG_DA.map(v =>
+    `<button type="button" class="${v === vungDa ? 'on' : ''}" data-chonvung="${v}">${T.LOAI[v].ten.replace('Da ', '')}</button>`).join('')}</div>`;
+  const cuoi = T.moiNhat(ds('cs'), vungDa);
+  const phong = T.moiNhat(ds('cs'), 'phong');
+  const bd = veDoiChieu(vungDa);
+  const dau = cuoi ? `<div class="nhan">${T.LOAI[vungDa].ten} · lần gần nhất ${tenNgay(cuoi.ngay)}${cuoi.gio ? ' ' + cuoi.gio : ''}</div>
+      <div class="solon">${giaTri(cuoi)}</div><div class="nhan">độ ẩm · độ nhờn${phong && phong.ngay === cuoi.ngay ? ` · phòng ${giaTri(phong)}` : ''}</div>
+      ${bd || '<p class="ghichu">Đo thêm vài ngày để thấy biểu đồ.</p>'}`
+    : `<div class="trong"><span>🧴</span>Chưa đo ${T.LOAI[vungDa].ten.toLowerCase()} lần nào.</div>`;
+  const tat = ds('cs').filter(x => !x.xoa && (x.loai === vungDa || x.loai === 'phong')).sort((a, b) => (a.ngay + a.gio).localeCompare(b.ngay + b.gio) || a.sua - b.sua);
+  return `${chonVung}<section class="the">${dau}
+      <button class="btn rong" style="margin-top:14px" data-lam="themDa">+ Đo da</button>
+      <p class="ghichu">Đây là công cụ tự quan sát tương quan của riêng bạn, không phải xác nhận y khoa. Histamine làm giãn mạch da và tác động lên tuyến bã nhờn đã được thấy trong nghiên cứu sinh lý, nhưng chưa được kiểm chứng trên lâm sàng cho từng người. Nhiệt độ và độ ẩm phòng cũng làm số đo da thay đổi, nên app ghi kèm để bạn đối chiếu.</p></section>${dsTheoNgay(tat)}`;
 }
 
 function veHs() {
@@ -572,7 +684,7 @@ function veHs() {
       ${tt('BMI', bmi ? `${T.hienSo(bmi.so, 1)} ${dgHtml(bmi)}` : '')}
       ${tt('Vận động', vd ? vd[1] : '')}
       ${tt('Calo nên ăn/ngày', can ? `${T.hienSo(can)} kcal${hs.mucKcal ? ' (tự đặt)' : ''}` : '')}
-      ${tt('Nước nên uống/ngày', `${T.hienSo(T.nuocCan(hs, kg))} ml`)}
+      ${tt('Ngưỡng histamine/ngày', hs.mucHistamine ? `${T.hienSo(hs.mucHistamine)} điểm (tự đặt)` : '<span class="nhan">chưa đặt</span>')}
       ${hs.ghi ? tt('Ghi chú', esc(hs.ghi)) : ''}
     </section>
     <section class="the"><h2>Khám bệnh, xét nghiệm, tiêm chủng<button data-lam="themKs">+ Thêm</button></h2>
@@ -589,10 +701,11 @@ function buaTheoGio(gio) {
 function macDinh(b, them = {}) {
   const coNgay = tab === 'tq' || tab === 'an';
   const goc = { id: taoId(), xoa: 0, ngay: coNgay ? ngay : T.homNay(), gio: T.gioNay(), ghi: '' };
-  if (b === 'an') return { ...goc, bua: them.bua || buaTheoGio(goc.gio), mon: '', luong: '', kcal: 0, dam: 0, bot: 0, beo: 0 };
-  if (b === 'cs') return { ...goc, loai: them.loai || loaiCs, a: 0, b: 0, c: 0 };
+  if (b === 'an') return { ...goc, bua: them.bua || buaTheoGio(goc.gio), mon: them.mon || '', luong: '', kcal: 0, dam: 0, bot: 0, beo: 0, ...T.coMon(null) };
+  if (b === 'cs') return { ...goc, loai: them.loai || 'can', a: 0, b: 0, c: 0 };
+  if (b === 'da') return { ...goc };
   if (b === 'ks') return { id: goc.id, xoa: 0, ngay: T.homNay(), loai: 'kham', noi: '', ten: '', ketQua: '', ghi: '' };
-  return { id: 'toi', xoa: 0, ten: '', sinh: '', gioi: '', cao: 0, nhomMau: '', diUng: '', benh: '', thuoc: '', lienHe: '', ghi: '', vanDong: 1.375, mucKcal: 0, mucNuoc: 0 };
+  return { id: 'toi', xoa: 0, ten: '', sinh: '', gioi: '', cao: 0, nhomMau: '', diUng: '', benh: '', thuoc: '', lienHe: '', ghi: '', vanDong: 1.375, mucKcal: 0, mucHistamine: 0 };
 }
 
 const oChu = (t, nhan, ph = '') => `<label class="o"><span>${nhan}</span><input data-truong="${t}" value="${esc(F.r[t] || '')}" placeholder="${esc(ph)}" maxlength="200" autocomplete="off"></label>`;
@@ -603,25 +716,64 @@ const oNgayGio = () => `<div class="hang2"><label class="o"><span>Ngày</span><i
 const chips = (truong, ds) => `<div class="chips" data-nhom="${truong}">${ds.map(([v, nhan, icon]) =>
   `<button type="button" class="${String(F.r[truong]) === String(v) ? 'on' : ''}" data-chon="${v}">${icon ? `<span>${icon}</span>` : ''}${nhan}</button>`).join('')}</div>`;
 
+// Dong "da nhan dien" duoi o ten mon: ro thi hien ten + muc, mo thi cho chon, khong khop thi bao.
+function khopHtml() {
+  const k = F.khop;
+  if (!k) return '';
+  if (k.nhieu) return `<p class="khop">Có ${k.nhieu} món. Bấm <b>Xem lại</b> để kiểm từng món trước khi lưu.</p>`;
+  if (F.chon) return `<p class="khop">Đã nhận diện: <b>${esc(F.chon.mon)}</b> ${hisHtml(T.coMon(F.chon))} ${coHtml(T.coMon(F.chon))}
+      ${k.ungVien.length ? '<button type="button" data-lam="doiMon">Đổi</button>' : ''}</p>${k.moDoi ? chonMonHtml(k.ungVien, 'chonmon') : ''}`;
+  if (k.kq === 'mo') return `<p class="khop">Bạn muốn ghi món nào?</p>${chonMonHtml(k.ungVien, 'chonmon')}`;
+  if (k.kq === 'khong' && k.go) return `<p class="khop canh">Chưa nhận diện: ${esc(k.go)}. Vẫn lưu được, tự điền calo nếu muốn.</p>`;
+  return '';
+}
+const chonMonHtml = (ds2, kieu, tien = '') => `<div class="moncu boc">${ds2.map((m, j) =>
+  `<button type="button" data-${kieu}="${tien}${j}">${esc(m.mon)}${m.kcal ? ' · ' + T.hienSo(m.kcal) : ''}</button>`).join('')}</div>`;
+
 const FORM = {
   an() {
     const cu = T.monCu(ds('an')).slice(0, 12);
     return chips('bua', BUA.map(([v, n, i]) => [v, n.replace('Ăn vặt, đồ uống', 'Ăn vặt'), i])) +
       (F.moi && cu.length ? `<div class="moncu">${cu.map(x => `<button type="button" data-moncu="${esc(x.id)}">${esc(x.mon)}${x.kcal ? ' · ' + T.hienSo(x.kcal) : ''}</button>`).join('')}</div>` : '') +
-      `<label class="o"><span>Món ăn</span><input data-truong="mon" id="fMon" list="dsMon" value="${esc(F.r.mon)}" placeholder="Ví dụ: Phở bò" maxlength="200" autocomplete="off"></label>
-      <datalist id="dsMon">${T.monCu(ds('an')).map(x => `<option value="${esc(x.mon)}">`).join('')}</datalist>
-      <div class="hang2">${oChu('luong', 'Lượng', '1 tô, 200g…')}${oSo('kcal', 'Calo', 'kcal')}</div>
+      `<label class="o"><span>Món ăn${F.moi ? ' (nhiều món thì cách nhau bằng dấu phẩy)' : ''}</span><input data-truong="mon" id="fMon" value="${esc(F.r.mon)}" placeholder="${F.moi ? 'Ví dụ: Cơm, thịt kho tàu, rau muống' : 'Ví dụ: Phở bò'}" maxlength="400" autocomplete="off"></label>
+      <div id="fKhop">${khopHtml()}</div>
+      <div id="fSo"><div class="hang2">${oChu('luong', 'Lượng', '1 tô, 200g…')}${oSo('kcal', 'Calo', 'kcal')}</div>
       <details ${F.r.dam || F.r.bot || F.r.beo ? 'open' : ''}><summary>Đạm, tinh bột, chất béo</summary>
-        <div class="hang3">${oSo('dam', 'Đạm', 'g')}${oSo('bot', 'Tinh bột', 'g')}${oSo('beo', 'Béo', 'g')}</div></details>
+        <div class="hang3">${oSo('dam', 'Đạm', 'g')}${oSo('bot', 'Tinh bột', 'g')}${oSo('beo', 'Béo', 'g')}</div></details></div>
       ${oNgayGio()}${oChu('ghi', 'Ghi chú', 'Cảm thấy thế nào sau khi ăn…')}`;
+  },
+  // Xem lai truoc khi luu nhieu mon: moi mon 1 dong, mon mo ho phai chon, tong ca bua o cuoi.
+  anNhieu() {
+    const tong = T.tongAn(F.nhieu.map(x => x.m || {}));
+    const diem = T.diemNgay(F.nhieu.map(x => ({ ...T.coMon(x.m), bua: F.r.bua })));
+    const dong = F.nhieu.map((x, i) => {
+      const m = x.m;
+      const tren = m ? `<b>${esc(m.mon)}</b>${x.go.toLowerCase() !== m.mon.toLowerCase() ? ` <small>(bạn gõ: ${esc(x.go)})</small>` : ''}` : `<b>${esc(x.go)}</b>`;
+      const duoi = m ? `<div class="phu">${[m.luong, m.kcal ? T.hienSo(m.kcal) + ' kcal' : '', m.dam || m.bot || m.beo ? `Đạm ${m.dam || 0}g · Bột ${m.bot || 0}g · Béo ${m.beo || 0}g` : ''].filter(Boolean).map(esc).join(' · ')}</div>
+          <div>${hisHtml(T.coMon(m))} ${coHtml(T.coMon(m))} ${x.ungVien.length ? `<button type="button" class="lienket" data-nhieudoi="${i}">Đổi</button>` : ''}</div>`
+        : x.kq === 'mo' && !x.giu ? '<div class="phu canh">Chọn đúng món:</div>'
+          : '<div class="phu canh">Chưa nhận diện: lưu với calo 0, sửa sau được.</div>';
+      const chon = (!m && x.kq === 'mo' && !x.giu) || x.moDoi
+        ? chonMonHtml(x.ungVien, 'nchon', i + ':') + `<button type="button" class="lienket" data-nchon="${i}:-1">Không phải các món trên, giữ tên tôi gõ</button>` : '';
+      return `<div class="xemlai">${tren}${duoi}${chon}</div>`;
+    }).join('');
+    return `<p class="nhan" style="margin:0 0 8px">${BUA.find(b => b[0] === F.r.bua)[1]} · ${tenNgay(F.r.ngay)}${F.r.gio ? ' ' + F.r.gio : ''}</p>${dong}
+      <div class="xemlai tongxl"><b>Cả bữa: ${T.hienSo(tong.kcal)} kcal</b><div class="phu">Đạm ${T.hienSo(tong.dam)}g · Bột ${T.hienSo(tong.bot)}g · Béo ${T.hienSo(tong.beo)}g · 🧪 điểm histamine ${diem.tong}</div></div>
+      <button type="button" class="btn rong" data-lam="nhieuQuay">← Sửa lại danh sách món</button>
+      <p class="ghichu">Số calo là ước tính theo khẩu phần phổ biến, mức histamine chỉ để tham khảo.</p>`;
   },
   cs() {
     const L = T.LOAI[F.r.loai];
-    const o = L.o.map((nhan, i) => oSo('abc'[i], nhan, i === 2 ? 'lần/phút' : L.dv)).join('');
-    return chips('loai', Object.entries(T.LOAI).map(([k, v]) => [k, v.ten, v.icon])) +
-      (L.o.length > 1 ? `<div class="hang3">${o}</div>` : o) +
-      (F.r.loai === 'nuoc' ? `<div class="moncu">${[150, 250, 330, 500].map(v => `<button type="button" data-dien="${v}">${v} ml</button>`).join('')}</div>` : '') +
-      `<div id="fDg"></div>${oNgayGio()}${oChu('ghi', 'Ghi chú', F.r.loai === 'duong' ? 'Lúc đói / sau ăn 2 giờ…' : '')}`;
+    const o = L.o.map((nhan, i) => oSo('ab'[i], nhan, L.dv[i])).join('');
+    return `<p class="nhan" style="margin:0 0 10px">${L.icon} ${L.ten}</p>` + (L.o.length > 1 ? `<div class="hang2">${o}</div>` : o) +
+      `<div id="fDg"></div>${oNgayGio()}${oChu('ghi', 'Ghi chú', L.nhom === 'da' ? 'Trước/sau rửa mặt, sau khi bôi kem…' : '')}`;
+  },
+  // Mot lan do da: dien vung nao co do, kem nhiet do va do am phong luc do.
+  da() {
+    const hang = T.VUNG_DA.map(v => `<div class="vungdo"><span>${T.LOAI[v].ten.replace('Da ', '')}</span>${oSo(v + '_a', 'Độ ẩm', '%')}${oSo(v + '_b', 'Độ nhờn', '%')}</div>`).join('');
+    return `<p class="ghichu" style="margin:0 0 10px">Điền vùng nào bạn đo, bỏ trống vùng không đo.</p>${hang}
+      <div class="vungdo"><span>Phòng</span>${oSo('phong_a', 'Nhiệt độ', '°C')}${oSo('phong_b', 'Độ ẩm', '%')}</div>
+      ${oNgayGio()}${oChu('ghi', 'Ghi chú', 'Trước/sau rửa mặt, sau khi bôi kem…')}`;
   },
   ks() {
     return chips('loai', LOAI_KHAM) + oChu('ten', 'Nội dung', 'Khám tổng quát, vắc xin cúm…') + oChu('noi', 'Nơi khám, bác sĩ') +
@@ -639,16 +791,20 @@ const FORM = {
       oDai('thuoc', 'Thuốc đang dùng', 'Tên thuốc, liều, giờ uống') +
       oChu('lienHe', 'Người liên hệ khẩn cấp', 'Tên – số điện thoại') +
       '<div class="o"><span>Mức vận động</span></div>' + chips('vanDong', VAN_DONG) +
-      `<div class="hang2">${oSo('mucKcal', 'Calo mục tiêu', 'kcal')}${oSo('mucNuoc', 'Nước mục tiêu', 'ml')}</div>
-      <p class="ghichu" style="margin-top:-4px">Để trống thì app tự tính theo cân nặng, chiều cao, tuổi.</p>` +
+      `<div class="hang2">${oSo('mucKcal', 'Calo mục tiêu', 'kcal')}${oSo('mucHistamine', 'Ngưỡng histamine/ngày', 'điểm')}</div>
+      <p class="ghichu" style="margin-top:-4px">Calo để trống thì app tự tính theo cân nặng, chiều cao, tuổi. Ngưỡng histamine không có số chuẩn chung, để trống thì app chỉ hiện điểm, không báo vượt. Nếu đặt, hãy chọn theo cảm nhận cơ thể của bạn qua thời gian.</p>` +
       oDai('ghi', 'Ghi chú khác');
   },
 };
-const TEN_HOP = { an: 'Ghi bữa ăn', cs: 'Ghi chỉ số', ks: 'Khám, xét nghiệm, tiêm', hs: 'Hồ sơ của tôi' };
+const TEN_HOP = { an: 'Ghi bữa ăn', cs: 'Ghi chỉ số', da: 'Đo da', ks: 'Khám, xét nghiệm, tiêm', hs: 'Hồ sơ của tôi' };
 
 function moHop(b, r, them) {
   F = { b, moi: !r, r: r ? { ...r } : macDinh(b, them) };
   if (b === 'hs') F.r = { ...macDinh('hs'), ...F.r };
+  if (b === 'an') {
+    F.cm = T.chiMuc(T.nguonMon(ds('an'), MON));
+    if (F.r.mon && F.moi) khopLai(); // ghi nhanh tu goi y
+  }
   $('fTieuDe').textContent = (r && b !== 'hs' ? 'Sửa: ' : '') + TEN_HOP[b];
   veThanHop();
   $('fXoa').hidden = F.moi || b === 'hs';
@@ -658,11 +814,41 @@ function moHop(b, r, them) {
   luuTrang('push', { hop: 1 });
 }
 function veThanHop() {
-  $('fThan').innerHTML = FORM[F.b]();
+  $('fThan').innerHTML = FORM[F.nhieu ? 'anNhieu' : F.b]();
+  $('hop').querySelector('.luu').textContent = F.nhieu ? `Lưu ${F.nhieu.length} món` : F.khop && F.khop.nhieu ? 'Xem lại' : 'Lưu';
   veDanhGiaHop();
+}
+// Khop lai ten mon dang go. Mon ro rang thi dien so (chi dien o con trong hoac o do app dien truoc do).
+function khopLai() {
+  const go = F.r.mon || '';
+  const phan = F.moi ? T.tachMon(go) : [go.trim()].filter(Boolean);
+  if (phan.length > 1) { F.khop = { nhieu: phan.length }; F.chon = null; return; }
+  const k = T.khopMon(phan[0] || '', F.cm);
+  F.khop = { ...k, go: phan[0] || '' };
+  datChon(k.kq === 'ro' ? k.chon : null);
+}
+function datChon(m) {
+  const truoc = F.chon;
+  F.chon = m;
+  Object.assign(F.r, T.coMon(m));
+  for (const t of ['luong', 'kcal', 'dam', 'bot', 'beo']) {
+    const cuTuDien = truoc && F.r[t] === truoc[t];
+    if (m && (!F.r[t] || cuTuDien)) F.r[t] = m[t] || (t === 'luong' ? '' : 0);
+    else if (!m && cuTuDien) F.r[t] = t === 'luong' ? '' : 0;
+  }
+}
+function veKhop() {
+  $('fKhop').innerHTML = khopHtml();
+  $('hop').querySelector('.luu').textContent = F.khop && F.khop.nhieu ? 'Xem lại' : 'Lưu';
+  for (const t of ['luong', 'kcal', 'dam', 'bot', 'beo']) {
+    const o = $('fThan').querySelector(`[data-truong="${t}"]`);
+    if (o && document.activeElement !== o) o.value = F.r[t] ? String(F.r[t]).replace('.', ',') : '';
+  }
+  if (F.r.dam || F.r.bot || F.r.beo) $('fThan').querySelector('details').open = true;
 }
 // Chep o nhap vao F.r (chips da ghi thang vao F.r luc bam)
 function docHop() {
+  if (F.nhieu) return; // man xem lai khong co o nhap
   $('fThan').querySelectorAll('[data-truong]').forEach(el => {
     F.r[el.dataset.truong] = el.dataset.kieu === 'so' ? T.docSo(el.value) : el.value.trim();
   });
@@ -671,7 +857,7 @@ function veDanhGiaHop() {
   const o = $('fDg');
   if (!o) return;
   docHop();
-  o.innerHTML = dgHtml(F.r.loai === 'can' ? T.bmi(F.r.a, (hoSo() || {}).cao) : T.danhGia(F.r.loai, F.r.a, F.r.b));
+  o.innerHTML = F.r.loai === 'can' ? dgHtml(T.bmi(F.r.a, (hoSo() || {}).cao)) : '';
 }
 function dongHopMuot() {
   if (history.state && history.state.hop) history.back();
@@ -685,29 +871,89 @@ function dongHopThat() {
   setTimeout(() => { h.close(); h.classList.remove('dangdong'); }, GIAM.matches ? 0 : 200);
 }
 
+// So khac thuong thi hoi lai, so vo ly thi chan. Tra true neu duoc luu.
+function soOn(loai, r) {
+  const k = T.kiemSo(loai, r);
+  if (k && k.loi) { baoLoi(k.loi); return false; }
+  return !(k && k.hoi) || confirm(k.hoi);
+}
+
 function luuHop() {
   docHop();
   const r = F.r;
   if (r.ngay !== undefined && F.b !== 'hs' && !/^\d{4}-\d{2}-\d{2}$/.test(r.ngay)) { baoLoi('Bạn chưa chọn ngày'); return; }
-  if (F.b === 'an' && !r.mon) { baoLoi('Bạn chưa nhập tên món'); return; }
-  if (F.b === 'cs' && !r.a) { baoLoi('Bạn chưa nhập số đo'); return; }
-  if (F.b === 'cs' && r.loai === 'huyetap' && !r.b) { baoLoi('Huyết áp cần cả số trên và số dưới'); return; }
+  if (F.b === 'an' && !F.nhieu && !r.mon) { baoLoi('Bạn chưa nhập tên món'); return; }
+  if (F.b === 'an' && !F.nhieu && F.moi && T.tachMon(r.mon).length > 1) { moXemLai(); return; }
+  if (F.b === 'an' && F.nhieu) { luuNhieu(); return; }
+  if (F.b === 'da') { luuDa(); return; }
+  if (F.b === 'cs' && !r.a && !r.b) { baoLoi('Bạn chưa nhập số đo'); return; }
+  if (F.b === 'cs' && !soOn(r.loai, r)) return;
   if (F.b === 'ks' && !r.ten) { baoLoi('Bạn chưa nhập nội dung'); return; }
   if (F.b === 'hs' && r.sinh && r.sinh > T.homNay()) { baoLoi('Ngày sinh chưa đúng'); return; }
+  if (F.b === 'an' && F.chon) r.mon = F.chon.mon;
   const { b, moi } = F;
   const cu = S[b][r.id];
   ghi(b, { ...r });
   dongHopMuot();
   if (b === 'an' && (tab === 'tq' || tab === 'an')) ngay = r.ngay;
-  if (b === 'cs') loaiCs = r.loai;
+  if (b === 'cs') { loaiCs = r.loai === 'can' ? 'can' : 'da'; if (r.loai !== 'can' && r.loai !== 'phong') vungDa = r.loai; }
   ve(true);
   if (moi) {
-    bao(b === 'hs' ? 'Đã lưu hồ sơ' : 'Đã lưu', () => moHop(b, S[b][r.id]), false, 'Sửa');
+    const chuaNhan = b === 'an' && r.histamine === '' && !r.kcal;
+    bao(b === 'hs' ? 'Đã lưu hồ sơ' : chuaNhan ? `Đã lưu. Chưa nhận diện: ${r.mon}` : 'Đã lưu', () => moHop(b, S[b][r.id]), false, 'Sửa');
     tungHat();
   } else {
     bao('Đã lưu thay đổi', cu ? () => { ghi(b, { ...S[b][r.id], ...cu }); ve(true); } : null);
   }
   if (navigator.vibrate) navigator.vibrate(12);
+}
+
+// Nhieu mon bang dau phay: tach, khop tung mon, chuyen sang man xem lai.
+function moXemLai() {
+  F.nhieu = T.tachMon(F.r.mon).map(go => {
+    const k = T.khopMon(go, F.cm);
+    return { go, kq: k.kq, m: k.kq === 'ro' ? k.chon : null, ungVien: k.kq === 'ro' ? [k.chon, ...k.ungVien] : k.ungVien };
+  });
+  veThanHop();
+  $('hop').querySelector('.thanhop').scrollTop = 0;
+}
+function luuNhieu() {
+  const thieu = F.nhieu.filter(x => !x.m && x.kq === 'mo' && !x.giu);
+  if (thieu.length) { baoLoi(`Hãy chọn món cho: ${thieu.map(x => x.go).join(', ')}`); return; }
+  const goc = F.r;
+  const ids = F.nhieu.map(x => {
+    const m = x.m;
+    const r = { id: taoId(), xoa: 0, ngay: goc.ngay, gio: goc.gio, bua: goc.bua, ghi: goc.ghi || '',
+      mon: m ? m.mon : x.go, luong: (m && m.luong) || '', kcal: (m && m.kcal) || 0, dam: (m && m.dam) || 0, bot: (m && m.bot) || 0, beo: (m && m.beo) || 0, ...T.coMon(m) };
+    ghi('an', r);
+    return r.id;
+  });
+  const chuaNhan = F.nhieu.filter(x => !x.m).map(x => x.go);
+  dongHopMuot();
+  if (tab === 'tq' || tab === 'an') ngay = goc.ngay;
+  ve(true);
+  bao(`Đã lưu ${ids.length} món${chuaNhan.length ? `. Chưa nhận diện: ${chuaNhan.join(', ')}` : ''}`,
+    () => { ids.forEach(id => ghi('an', { ...S.an[id], xoa: 1 })); ve(); });
+  tungHat();
+  if (navigator.vibrate) navigator.vibrate(12);
+}
+// Mot lan do da: moi vung co so thanh 1 ban ghi, phong thanh 1 ban ghi; cung ngay gio.
+function luuDa() {
+  const r = F.r;
+  const moi = [...T.VUNG_DA, 'phong'].map(v => ({ loai: v, a: r[v + '_a'] || 0, b: r[v + '_b'] || 0 })).filter(x => x.a || x.b);
+  if (!moi.some(x => x.loai !== 'phong')) { baoLoi('Bạn chưa nhập số đo vùng da nào'); return; }
+  for (const x of moi) if (!soOn(x.loai, x)) return;
+  const ids = moi.map(x => {
+    const id = taoId();
+    ghi('cs', { id, xoa: 0, ngay: r.ngay, gio: r.gio, loai: x.loai, a: x.a, b: x.b, c: 0, ghi: r.ghi || '' });
+    return id;
+  });
+  dongHopMuot();
+  loaiCs = 'da';
+  vungDa = moi.find(x => x.loai !== 'phong').loai;
+  ve(true);
+  bao(`Đã lưu ${moi.filter(x => x.loai !== 'phong').length} vùng da`, () => { ids.forEach(id => ghi('cs', { ...S.cs[id], xoa: 1 })); ve(); });
+  tungHat();
 }
 
 // ---- Thong bao, hieu ung ----
@@ -761,15 +1007,17 @@ const LAM = {
   },
   ngayLui() { ngay = T.congNgay(ngay, -1); huong = -1; luuTrang('replace'); ve(true); },
   ngayToi() { if (ngay < T.homNay()) { ngay = T.congNgay(ngay, 1); huong = 1; luuTrang('replace'); ve(true); } },
-  themMoi() { if (tab === 'cs') moHop('cs'); else if (tab === 'hs') moHop('ks'); else moHop('an'); },
+  themMoi() { if (tab === 'cs') { if (loaiCs === 'da') moHop('da'); else moHop('cs', null, { loai: 'can' }); } else if (tab === 'hs') moHop('ks'); else moHop('an'); },
   themAn() { moHop('an'); },
   themKs() { moHop('ks'); },
   suaHs() { moHop('hs', S.hs.toi); },
-  themNuoc() {
-    const id = taoId();
-    ghi('cs', { id, ngay, gio: T.gioNay(), loai: 'nuoc', a: 250, b: 0, c: 0, ghi: '', xoa: 0 });
-    ve();
-    bao('Đã thêm 250 ml nước', () => { ghi('cs', { ...S.cs[id], xoa: 1 }); ve(); });
+  themDa() { moHop('da'); },
+  doiMon() { F.khop.moDoi = !F.khop.moDoi; veKhop(); },
+  nhieuQuay() {
+    F.r.mon = F.nhieu.map(x => (x.m ? x.m.mon : x.go)).join(', ');
+    F.nhieu = null;
+    khopLai();
+    veThanHop();
   },
   dongHop() { dongHopMuot(); },
   dongBoNgay() { trangThai.loi = ''; dongBo(); },
@@ -806,7 +1054,19 @@ document.addEventListener('click', e => {
   else if (d.sua) { const [b, id] = d.sua.split(':'); moHop(b, S[b][id]); }
   else if (d.themcs) moHop('cs', null, { loai: d.themcs });
   else if (d.thembua) moHop('an', null, { bua: d.thembua });
-  else if (d.xemcs) { loaiCs = d.xemcs; tab = 'cs'; luuTrang('push'); ve(true); scrollTo(0, 0); }
+  else if (d.xemcs) { loaiCs = d.xemcs; if (d.vung && d.vung !== 'can') vungDa = d.vung; tab = 'cs'; luuTrang('push'); ve(true); scrollTo(0, 0); }
+  else if (d.chonvung) { vungDa = d.chonvung; ve(); }
+  else if (d.ghimon) moHop('an', null, { mon: d.ghimon });
+  else if (d.chonmon !== undefined) { docHop(); datChon(F.khop.ungVien[d.chonmon]); F.khop.moDoi = false; $('fMon').value = F.r.mon = F.chon.mon; veKhop(); }
+  else if (d.nhieudoi !== undefined) { const x = F.nhieu[d.nhieudoi]; x.moDoi = !x.moDoi; veThanHop(); }
+  else if (d.nchon !== undefined) {
+    const [i, j] = d.nchon.split(':').map(Number);
+    const x = F.nhieu[i];
+    x.m = j < 0 ? null : x.ungVien[j];
+    x.giu = j < 0;
+    x.moDoi = false;
+    veThanHop();
+  }
   else if (d.loaics) { loaiCs = d.loaics; luuTrang('replace'); ve(true); }
   else if (d.chon !== undefined) {
     const truong = el.parentElement.dataset.nhom;
@@ -817,30 +1077,27 @@ document.addEventListener('click', e => {
   }
   else if (d.moncu) {
     const x = S.an[d.moncu];
-    for (const t of ['mon', 'luong', 'kcal', 'dam', 'bot', 'beo']) {
-      const o = $('fThan').querySelector(`[data-truong="${t}"]`);
-      if (o) o.value = x[t] ? String(x[t]).replace('.', ',') : '';
-    }
-    if (x.dam || x.bot || x.beo) $('fThan').querySelector('details').open = true;
+    docHop();
+    F.r.mon = x.mon;
+    F.khop = { kq: 'ro', chon: x, ungVien: [], go: x.mon };
+    F.chon = null;
+    for (const t of ['luong', 'kcal', 'dam', 'bot', 'beo']) F.r[t] = x[t] || (t === 'luong' ? '' : 0);
+    datChon(x);
+    $('fMon').value = x.mon;
+    veKhop();
   }
-  else if (d.dien) { const o = $('fThan').querySelector('[data-truong="a"]'); o.value = d.dien; }
 });
 
+let henKhop = 0;
 $('fForm').addEventListener('submit', e => { e.preventDefault(); luuHop(); });
 $('hop').addEventListener('cancel', e => { e.preventDefault(); dongHopMuot(); });
 $('hop').addEventListener('close', () => { if (history.state && history.state.hop) history.back(); });
 $('fThan').addEventListener('input', e => {
   if (e.target.dataset.kieu === 'so') veDanhGiaHop();
-  // Go dung ten mon da an thi tu dien calo neu o calo con trong
+  // Go ten mon: tra danh muc + mon tung an, ro rang thi tu dien calo, mo ho thi cho chon
   if (e.target.id === 'fMon') {
-    const x = T.monCu(ds('an')).find(m => m.mon.trim().toLowerCase() === e.target.value.trim().toLowerCase());
-    const oKcal = $('fThan').querySelector('[data-truong="kcal"]');
-    if (x && !oKcal.value) {
-      for (const t of ['luong', 'kcal', 'dam', 'bot', 'beo']) {
-        const o = $('fThan').querySelector(`[data-truong="${t}"]`);
-        if (o && !o.value && x[t]) o.value = String(x[t]).replace('.', ',');
-      }
-    }
+    clearTimeout(henKhop);
+    henKhop = setTimeout(() => { if (!F || F.b !== 'an' || F.nhieu) return; docHop(); khopLai(); veKhop(); }, 250);
   }
 });
 

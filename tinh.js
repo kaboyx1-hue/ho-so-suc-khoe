@@ -23,18 +23,36 @@
     return Number.isFinite(n) && n > 0 ? n : 0;
   };
 
-  // Cac loai chi so. a/b/c la 3 o so cua mot lan do; cong = cong don ca ngay thay vi lay lan moi nhat.
+  // Cac loai chi so. a/b la 2 o so cua mot lan do (dv: don vi tung o).
+  // Da: moi vung mot loai, 1 lan do ra ca do am lan do nhon (%). Phong: dieu kien phong luc do da.
+  const da = ten => ({ ten: 'Da ' + ten, icon: '🧴', o: ['Độ ẩm', 'Độ nhờn'], dv: ['%', '%'], le: 1, nhom: 'da' });
   T.LOAI = {
-    can: { ten: 'Cân nặng', icon: '⚖️', dv: 'kg', o: ['Cân nặng'], le: 1 },
-    huyetap: { ten: 'Huyết áp', icon: '🩺', dv: 'mmHg', o: ['Tâm thu', 'Tâm trương', 'Nhịp tim'] },
-    duong: { ten: 'Đường huyết', icon: '🩸', dv: 'mmol/L', o: ['Đường huyết lúc đói'], le: 1 },
-    nhip: { ten: 'Nhịp tim', icon: '❤️', dv: 'lần/phút', o: ['Nhịp tim lúc nghỉ'] },
-    spo2: { ten: 'SpO₂', icon: '🫁', dv: '%', o: ['SpO₂'] },
-    nhiet: { ten: 'Nhiệt độ', icon: '🌡️', dv: '°C', o: ['Nhiệt độ'], le: 1 },
-    ngu: { ten: 'Giấc ngủ', icon: '😴', dv: 'giờ', o: ['Số giờ ngủ'], le: 1 },
-    nuoc: { ten: 'Nước uống', icon: '💧', dv: 'ml', o: ['Lượng nước'], cong: 1 },
-    buoc: { ten: 'Bước chân', icon: '👟', dv: 'bước', o: ['Số bước'], cong: 1 },
-    eo: { ten: 'Vòng eo', icon: '📏', dv: 'cm', o: ['Vòng eo'], le: 1 },
+    can: { ten: 'Cân nặng', icon: '⚖️', o: ['Cân nặng'], dv: ['kg'], le: 1 },
+    da_tran: da('trán'), da_mui: da('mũi'), da_ma: da('má'), da_cam: da('cằm'),
+    phong: { ten: 'Phòng lúc đo', icon: '🌡️', o: ['Nhiệt độ phòng', 'Độ ẩm phòng'], dv: ['°C', '%'], le: 1, nhom: 'da' },
+  };
+  T.VUNG_DA = ['da_tran', 'da_mui', 'da_ma', 'da_cam'];
+
+  // Khoang so hop ly. cung: vuot thi khong cho luu (may chu cung chan). mem: hoi lai cho chac.
+  const KHOANG = {
+    can: { a: { cung: [2, 300], mem: [25, 200] } },
+    da: { a: { cung: [0, 100], mem: [5, 95] }, b: { cung: [0, 100], mem: [1, 90] } },
+    phong: { a: { cung: [-10, 60], mem: [10, 42] }, b: { cung: [0, 100], mem: [15, 98] } },
+  };
+  // Tra { loi } (khong cho luu), { hoi } (bat thuong, hoi lai) hoac null.
+  T.kiemSo = (loai, r) => {
+    const L = T.LOAI[loai];
+    const k = L && (KHOANG[loai] || KHOANG[L.nhom]);
+    if (!k) return null;
+    let hoi = null;
+    for (const [i, o] of ['a', 'b'].entries()) {
+      const v = r[o];
+      if (!k[o] || !v) continue;
+      const ten = `${L.o[i]} ${T.hienSo(v, 1)} ${L.dv[i]}`;
+      if (v < k[o].cung[0] || v > k[o].cung[1]) return { loi: `${ten} không thể đúng, hãy kiểm tra lại` };
+      if (!hoi && (v < k[o].mem[0] || v > k[o].mem[1])) hoi = { hoi: `${ten} khác thường. Có gõ nhầm không? Vẫn lưu?` };
+    }
+    return hoi;
   };
 
   // Moi danh gia: { chu, muc } voi muc 0 = tot, 1 = can de y, 2 = nen di kham.
@@ -48,31 +66,6 @@
     return { so: Math.round(so * 10) / 10, ...dg };
   };
 
-  T.danhGia = (loai, a, b) => {
-    if (!a) return null;
-    switch (loai) {
-      case 'huyetap':
-        if (!b) return null;
-        if (a >= 180 || b >= 120) return muc('Rất cao, nên đi khám ngay', 2);
-        if (a < 90 || b < 60) return muc('Thấp', 1);
-        if (a >= 140 || b >= 90) return muc('Cao độ 2', 2);
-        if (a >= 130 || b >= 80) return muc('Cao độ 1', 1);
-        if (a >= 120) return muc('Hơi cao', 1);
-        return muc('Bình thường', 0);
-      case 'duong':
-        return a < 3.9 ? muc('Thấp', 2) : a < 5.6 ? muc('Bình thường', 0) : a < 7 ? muc('Tiền tiểu đường', 1) : muc('Cao', 2);
-      case 'nhip':
-        return a < 50 ? muc('Chậm', 1) : a <= 100 ? muc('Bình thường', 0) : muc('Nhanh', 1);
-      case 'spo2':
-        return a >= 95 ? muc('Bình thường', 0) : a >= 90 ? muc('Hơi thấp', 1) : muc('Thấp, nên đi khám', 2);
-      case 'nhiet':
-        return a < 35 ? muc('Thân nhiệt thấp', 2) : a <= 37.5 ? muc('Bình thường', 0) : a <= 38.5 ? muc('Sốt nhẹ', 1) : muc('Sốt cao', 2);
-      case 'ngu':
-        return a < 6 ? muc('Ngủ ít', 1) : a <= 9 ? muc('Đủ giấc', 0) : muc('Ngủ nhiều', 1);
-      default: return null;
-    }
-  };
-
   // Calo can moi ngay: Mifflin-St Jeor nhan he so van dong. Thieu thong tin thi tra 0.
   T.kcalCan = (hs, kg, homNay) => {
     if (!hs) return 0;
@@ -83,9 +76,6 @@
     return Math.round(nen * (hs.vanDong || 1.375) / 10) * 10;
   };
 
-  // Nuoc moi ngay: tu dat, khong thi 35 ml moi kg, chua co can nang thi 2000 ml.
-  T.nuocCan = (hs, kg) => (hs && hs.mucNuoc) || (kg ? Math.round(kg * 35 / 50) * 50 : 2000);
-
   const conSong = x => !x.xoa;
   const sauHon = (x, y) => (x.ngay + (x.gio || '')).localeCompare(y.ngay + (y.gio || '')) || x.sua - y.sua;
 
@@ -95,13 +85,119 @@
 
   T.csLoai = (dsCs, loai) => dsCs.filter(x => conSong(x) && x.loai === loai).sort(sauHon);
   T.moiNhat = (dsCs, loai) => { const ds = T.csLoai(dsCs, loai); return ds[ds.length - 1] || null; };
-  T.congNgay2 = (dsCs, loai, ngay) => dsCs.reduce((s, x) => s + (conSong(x) && x.loai === loai && x.ngay === ngay ? x.a || 0 : 0), 0);
 
   // Mon da an truoc day: lay lan moi nhat cua moi ten mon, de goi y va tu dien calo.
   T.monCu = dsAn => {
     const theoTen = {};
     for (const x of dsAn.filter(conSong).sort(sauHon)) theoTen[x.mon.trim().toLowerCase()] = x;
     return Object.values(theoTen).reverse();
+  };
+
+  // ---- Danh muc mon an: khop ten mo theo tu khoa ----
+  // Bo dau de khop ca khi go khong dau ("rau muong"). Van hien ten goc co dau.
+  T.boDau = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+  const tuCua = s => String(s).toLowerCase().normalize('NFC').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  // Tach "Cơm, thịt kho; rau muống" thanh tung mon.
+  T.tachMon = s => String(s).split(/[,;\n]+/).map(x => x.trim().replace(/\s+/g, ' ')).filter(Boolean);
+
+  // Cac co cua mot mon de luu kem ban ghi an (chu, '' = chua phan loai). Danh muc goi co sua bo la "sua".
+  const chuCo = v => (v === undefined || v === null || v === '' ? '' : String(v));
+  T.coMon = m => ({
+    histamine: chuCo(m && m.histamine), duongHuyet: chuCo(m && m.duongHuyet),
+    // danh muc ghi sua bo o truong "sua" (0/1); ban ghi an thi "sua" la moc thoi gian sua, khong phai sua bo
+    suaBo: chuCo(m && (m.suaBo !== undefined ? m.suaBo : m.sua === 0 || m.sua === 1 ? m.sua : '')),
+    nhomBeo: (m && m.nhomBeo) || '', loaiDuong: (m && m.loaiDuong) || '',
+  });
+
+  // Chi muc: moi tu dem xuat hien o bao nhieu ten mon. Tu cang hiem trong so cang cao ("muống" > "rau").
+  T.chiMuc = dsMon => {
+    const df = {}, dfKd = {};
+    const mon = dsMon.map(m => {
+      const tu = tuCua(m.mon);
+      const kd = tu.map(T.boDau);
+      new Set(tu).forEach(t => { df[t] = (df[t] || 0) + 1; });
+      new Set(kd).forEach(t => { dfKd[t] = (dfKd[t] || 0) + 1; });
+      return { m, tu, kd, ten: ` ${tu.join(' ')} `, tenKd: ` ${kd.join(' ')} ` };
+    });
+    return { mon, df, dfKd, n: dsMon.length };
+  };
+  const RO = 0.75; // ung vien thu 2 duoi 75% diem ung vien 1 thi coi la ro rang
+
+  // Tra { kq: 'ro'|'mo'|'khong', chon, ungVien }. Go co dau thi so co dau, go khong dau thi so khong dau.
+  T.khopMon = (chuoi, cm) => {
+    const q0 = tuCua(chuoi);
+    if (!q0.length) return { kq: 'khong', chon: null, ungVien: [] };
+    const coDau = q0.some(t => T.boDau(t) !== t);
+    const q = coDau ? q0 : q0.map(T.boDau);
+    const df = coDau ? cm.df : cm.dfKd;
+    const w = t => Math.log(1 + cm.n / (df[t] || 0.5));
+    // Chu khong co trong ten mon nao ("nhà làm", "ngon") thi bo qua, khong keo diem xuong
+    const tongQ = [...new Set(q)].filter(t => df[t]).reduce((s, t) => s + w(t), 0);
+    if (!tongQ) return { kq: 'khong', chon: null, ungVien: [] };
+    const ds = [];
+    for (const x of cm.mon) {
+      const tu = coDau ? x.tu : x.kd;
+      const ten = coDau ? x.ten : x.tenKd;
+      if (ten.trim() === q.join(' ')) { ds.push({ m: x.m, d: 1e6 }); continue; } // trung ten
+      let khop = 0;
+      for (const t of new Set(q)) if (tu.includes(t)) khop += w(t);
+      if (!khop || khop < tongQ * 0.5) continue; // phan lon tu khoa phai co trong ten mon
+      const tongX = [...new Set(tu)].reduce((s, t) => s + w(t), 0);
+      // Cac tu lien nhau dung thu tu nhu trong ten mon ("thịt kho") duoc cong them
+      let lien = 0;
+      for (let i = 0; i + 1 < q.length; i++) if (ten.includes(` ${q[i]} ${q[i + 1]} `)) lien += 0.5 * (w(q[i]) + w(q[i + 1]));
+      ds.push({ m: x.m, d: (khop + lien) * (0.6 + 0.4 * khop / tongX) * (khop / tongQ) }); // thieu tu da go thi bi tru
+    }
+    ds.sort((a, b) => b.d - a.d);
+    if (!ds.length) return { kq: 'khong', chon: null, ungVien: [] };
+    if (ds.length === 1 || ds[1].d < ds[0].d * RO) return { kq: 'ro', chon: ds[0].m, ungVien: ds.slice(1, 4).map(x => x.m) };
+    return { kq: 'mo', chon: null, ungVien: ds.filter(x => x.d >= ds[0].d * RO).slice(0, 6).map(x => x.m) };
+  };
+
+  // Nguon tra cuu = mon tung an (so lieu cua chinh minh, uu tien) + danh muc. Trung ten thi giu mon tung an.
+  T.nguonMon = (dsAn, danhMuc) => {
+    const cu = T.monCu(dsAn);
+    const daCo = new Set(cu.map(x => x.mon.trim().toLowerCase()));
+    return cu.concat(danhMuc.filter(m => !daCo.has(m.mon.trim().toLowerCase())));
+  };
+
+  // ---- Diem histamine uoc luong (khong phai so do y khoa, khong co nguong chuan) ----
+  const DIEM_HIS = { 0: 0, 1: 1, 2: 3 }; // muc cao nang hon han: vai mon nang du "tran nguong"
+  T.diemMon = x => (x.histamine === '' || x.histamine === undefined || x.histamine === null ? null : DIEM_HIS[x.histamine] || 0);
+  // Diem theo bua va ca ngay; chuaPhanLoai = so mon khong ro muc (khong tinh vao diem).
+  T.diemNgay = dsAnNgay => {
+    const bua = {};
+    let tong = 0, chuaPhanLoai = 0, coCao = 0;
+    for (const x of dsAnNgay) {
+      const d = T.diemMon(x);
+      if (d === null) { chuaPhanLoai++; continue; }
+      bua[x.bua] = (bua[x.bua] || 0) + d;
+      tong += d;
+      if (String(x.histamine) === '2') coCao++;
+    }
+    return { bua, tong, chuaPhanLoai, coCao };
+  };
+  // Ngay dau tien co mon da phan loai histamine: truoc ngay nay diem khong dang tin.
+  T.ngayBatDauHis = dsAn => dsAn.filter(x => !x.xoa && T.diemMon(x) !== null).map(x => x.ngay).sort()[0] || '';
+
+  // Dem co da mun trong ngay. Khong gop thanh 1 diem: moi co la mot co che khac nhau.
+  T.coDaNgay = dsAnNgay => {
+    const c = { duongCao: 0, suaBo: 0, omega6: 0, omega3: 0 };
+    for (const x of dsAnNgay) {
+      if (String(x.duongHuyet) === '2') c.duongCao++;
+      if (String(x.suaBo) === '1') c.suaBo++;
+      if (x.nhomBeo === 'omega6') c.omega6++;
+      if (x.nhomBeo === 'omega3') c.omega3++;
+    }
+    return c;
+  };
+
+  // Goi y mon muc histamine thap, mon minh tung an len truoc.
+  T.goiYCanBang = (dsAn, danhMuc, n = 6) => {
+    const daAn = new Set(T.monCu(dsAn).map(x => x.mon.trim().toLowerCase()));
+    const thap = danhMuc.filter(m => m.histamine === 0 && m.kcal >= 30 && !/chưa nấu/i.test(m.mon)); // bo nguyen lieu song
+    const quen = thap.filter(m => daAn.has(m.mon.trim().toLowerCase()));
+    return quen.concat(thap.filter(m => !daAn.has(m.mon.trim().toLowerCase()))).slice(0, n);
   };
 
   // Gop ban ghi tu may chu vao kho cua may nay. Ban nao sua sau thi thang.

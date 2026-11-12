@@ -2,14 +2,26 @@
 // Khong co mat khau trong file nay. Khoa rieng duoc giu trong Script Properties.
 
 const BANG = {
-  hs: { ten: 'HO_SO', cot: ['id', 'ten', 'sinh', 'gioi', 'cao', 'nhomMau', 'diUng', 'benh', 'thuoc', 'lienHe', 'ghi', 'vanDong', 'mucKcal', 'mucNuoc', 'sua', 'xoa', 'rev'],
+  hs: { ten: 'HO_SO', cot: ['id', 'ten', 'sinh', 'gioi', 'cao', 'nhomMau', 'diUng', 'benh', 'thuoc', 'lienHe', 'ghi', 'vanDong', 'mucKcal', 'mucNuoc', 'sua', 'xoa', 'rev', 'mucHistamine'],
     chu: ['id', 'ten', 'sinh', 'gioi', 'nhomMau', 'diUng', 'benh', 'thuoc', 'lienHe', 'ghi'] },
   cs: { ten: 'CHI_SO', cot: ['id', 'ngay', 'gio', 'loai', 'a', 'b', 'c', 'ghi', 'sua', 'xoa', 'rev'], chu: ['id', 'ngay', 'gio', 'loai', 'ghi'] },
-  an: { ten: 'AN_UONG', cot: ['id', 'ngay', 'gio', 'bua', 'mon', 'luong', 'kcal', 'dam', 'bot', 'beo', 'ghi', 'sua', 'xoa', 'rev'],
-    chu: ['id', 'ngay', 'gio', 'bua', 'mon', 'luong', 'ghi'] },
+  // Cot moi luon them vao CUOI: Sheet cu da co du lieu theo vi tri cot. mucNuoc khong con dung, giu cho dung vi tri.
+  // Muc histamine va 4 co da mun la chu: o trong = chua phan loai (khong duoc doc thanh 0 = "thap").
+  an: { ten: 'AN_UONG', cot: ['id', 'ngay', 'gio', 'bua', 'mon', 'luong', 'kcal', 'dam', 'bot', 'beo', 'ghi', 'sua', 'xoa', 'rev',
+    'histamine', 'duongHuyet', 'suaBo', 'nhomBeo', 'loaiDuong'],
+    chu: ['id', 'ngay', 'gio', 'bua', 'mon', 'luong', 'ghi', 'histamine', 'duongHuyet', 'suaBo', 'nhomBeo', 'loaiDuong'] },
   ks: { ten: 'KHAM_BENH', cot: ['id', 'ngay', 'loai', 'noi', 'ten', 'ketQua', 'ghi', 'sua', 'xoa', 'rev'], chu: ['id', 'ngay', 'loai', 'noi', 'ten', 'ketQua', 'ghi'] },
 };
 const TOI_DA_MOI_LAN = 500;
+// Gia tri duoc phep cua cac cot co danh sach co dinh ('' = chua phan loai).
+const CHON = {
+  histamine: ['', '0', '1', '2'], duongHuyet: ['', '0', '1', '2'], suaBo: ['', '0', '1'],
+  nhomBeo: ['', 'omega3', 'omega6', 'trung-tinh'],
+  loaiDuong: ['', 'khong-dang-ke', 'tinh-bot-tinh-che', 'duong-tu-nhien-co-xo', 'duong-tu-nhien-khong-co-xo', 'lactose', 'duong-tinh-luyen-them'],
+};
+// Chan cung so phi sinh ly (app chi canh bao mem trong khoang hep hon). Loai cu khong co o day thi chi chan 1e9.
+const DA = { a: [0, 100], b: [0, 100] };
+const GIOI_HAN = { can: { a: [2, 300] }, da_tran: DA, da_mui: DA, da_ma: DA, da_cam: DA, phong: { a: [-10, 60], b: [0, 100] } };
 
 function doGet() {
   return ContentService.createTextOutput('Ho So Suc Khoe dang chay.');
@@ -35,9 +47,10 @@ function xuLy_(goi) {
   lock.waitLock(25000);
   try {
     const kho = PropertiesService.getScriptProperties();
+    // Khoa chi do chu tao (chay capQuyen trong trinh soan thao), khong de request dau tien tu chiem so.
     const daCo = kho.getProperty('KHOA');
-    if (!daCo) kho.setProperty('KHOA', khoa); // link rieng dau tien mo so; ai khac khong biet dia chi nay
-    else if (daCo !== khoa) return { ok: false, loi: 'khoa' };
+    if (!daCo) return { ok: false, loi: 'chuaKhoa' };
+    if (daCo !== khoa) return { ok: false, loi: 'khoa' };
 
     // Mat ma: link rieng thoi chua du, phai co "the" duoc cap sau khi nhap dung mat ma.
     const pin = kho.getProperty('PIN');
@@ -64,6 +77,7 @@ function xuLy_(goi) {
     if (!thay.length && tu === rev) return { ok: true, ds: [], tu: rev, boQua: [] };
 
     const boQua = [];
+    const cu = []; // ban gui len cu hon ban tren Sheet (may khac sua sau): tra ve de may nay biet va lay ban moi
     const theoBang = {};
     for (const m of thay) {
       if (!hopLe_(m)) { boQua.push(m && m.r && m.r.id); continue; }
@@ -80,7 +94,7 @@ function xuLy_(goi) {
 
       for (const r of theoBang[b] || []) {
         const i = viTri[r.id];
-        if (i !== undefined && hang[i].sua > r.sua) continue; // ban tren Sheet moi hon
+        if (i !== undefined && hang[i].sua > r.sua) { cu.push({ b, id: r.id }); continue; } // ban tren Sheet moi hon
         const moi = Object.assign({}, r, { rev: ++rev });
         const dong = cot.map(c => giaTriO_(b, c, moi[c]));
         if (i !== undefined) {
@@ -93,11 +107,12 @@ function xuLy_(goi) {
           hang.push(moi);
         }
       }
-      for (const r of hang) if (r.rev > tu) ds.push({ b, r });
+      const cuBang = new Set(cu.filter(x => x.b === b).map(x => x.id));
+      for (const r of hang) if (r.rev > tu || cuBang.has(r.id)) ds.push({ b, r });
     }
 
     kho.setProperty('REV', String(rev));
-    return { ok: true, ds, tu: rev, boQua };
+    return { ok: true, ds, tu: rev, boQua, cu };
   } finally {
     lock.releaseLock();
   }
@@ -161,6 +176,10 @@ function hopLe_(m) {
   if (bg.cot.includes('ngay') && !ngayThat_(r.ngay)) return false;
   if (r.sinh && !ngayThat_(r.sinh)) return false;
   if (r.gio && !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.gio)) return false;
+  for (const c of Object.keys(CHON)) if (r[c] !== undefined && bg.cot.includes(c) && !CHON[c].includes(r[c])) return false;
+  const gh = m.b === 'cs' && !r.xoa && GIOI_HAN[r.loai];
+  if (gh) for (const o of Object.keys(gh)) if (r[o] && (r[o] < gh[o][0] || r[o] > gh[o][1])) return false;
+  if (r.mucHistamine !== undefined && !(r.mucHistamine >= 0 && r.mucHistamine <= 999)) return false;
   return true;
 }
 
@@ -178,7 +197,14 @@ function bangCua_(b) {
   // khi doc danh sach trang: luc do bo qua trang mac dinh, tao thang trang moi.
   let sh = null, dsTrang = null;
   try { sh = ss.getSheetByName(ten); dsTrang = ss.getSheets(); } catch (e) { /* file chua dung xong */ }
-  if (sh) return sh;
+  if (sh) {
+    // Ban moi them cot vao cuoi: ghi tieu de cot moi va dinh dang chu cho cot moi.
+    if (sh.getLastColumn() < cot.length) {
+      sh.getRange(1, 1, 1, cot.length).setValues([cot]).setFontWeight('bold');
+      dinhDangChu_(sh, b, 1, sh.getMaxRows());
+    }
+    return sh;
+  }
 
   // Dung lai trang trong mac dinh cua file moi, khong de thua "Sheet1".
   const dau = dsTrang && dsTrang[0];
@@ -212,7 +238,7 @@ function doc_(sh, b) {
   if (dong < 1) return [];
   return sh.getRange(2, 1, dong, cot.length).getValues().map(v => {
     const r = {};
-    cot.forEach((c, i) => { r[c] = chu.includes(c) ? String(v[i]) : Number(v[i]) || 0; });
+    cot.forEach((c, i) => { r[c] = chu.includes(c) ? String(v[i] === undefined ? '' : v[i]) : Number(v[i]) || 0; });
     return r;
   });
 }
@@ -224,8 +250,22 @@ function xoaPin() {
   Logger.log('Da xoa mat ma.');
 }
 
-// Chay 1 lan trong trinh soan thao de cap quyen cho script doc ghi Sheet nay.
+// Chay 1 lan trong trinh soan thao: cap quyen doc ghi Sheet va tao khoa rieng (neu chua co).
+// Chi chu tai khoan chay duoc ham nay, nen khong ai chiem so truoc chu duoc.
 function capQuyen() {
   Object.keys(BANG).forEach(bangCua_);
+  const kho = PropertiesService.getScriptProperties();
+  if (!kho.getProperty('KHOA')) kho.setProperty('KHOA', khoaNgauNhien_());
   Logger.log('Xong. Sheet: ' + SpreadsheetApp.getActiveSpreadsheet().getUrl());
+  Logger.log('Khoa rieng (giu kin, ghep vao link sau dau cham): ' + kho.getProperty('KHOA'));
+}
+
+// Nghi lo link: chay ham nay de doi khoa, link cu het dung. Mo app bang link moi.
+function doiKhoa() {
+  PropertiesService.getScriptProperties().setProperty('KHOA', khoaNgauNhien_());
+  capQuyen();
+}
+
+function khoaNgauNhien_() {
+  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
 }

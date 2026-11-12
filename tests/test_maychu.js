@@ -7,15 +7,79 @@ const { dungMoiTruong } = require('./gia_lap.js');
 const K = 'a'.repeat(40);
 const gd = (id, sua, kcal = 300, them = {}) => ({ b: 'an', r: { id, ngay: '2026-11-01', gio: '07:30', bua: 'sang', mon: 'Phở bò', luong: '1 tô', kcal, ghi: '', sua, xoa: 0, ...them } });
 
-test('khoa: link dau tien mo so, khoa khac bi chan', () => {
+test('khoa: so chua co khoa thi khong ai mo duoc; capQuyen tao khoa, khoa khac bi chan', () => {
+  const { goi, ngu, prop } = dungMoiTruong(null);
+  assert.equal(goi({ k: K, hoiPin: 1 }).loi, 'chuaKhoa'); // request dau tien khong tu chiem so
+  assert.equal(prop.KHOA, undefined);
+  ngu.capQuyen();
+  const khoa = prop.KHOA;
+  assert.match(khoa, /^[\w-]{32,128}$/);
+  ngu.capQuyen();
+  assert.equal(prop.KHOA, khoa); // chay lai khong doi khoa
+  assert.equal(goi({ k: K, thay: [] }).loi, 'khoa');
+  assert.equal(goi({ k: khoa, thay: [] }).ok, true);
+  ngu.doiKhoa();
+  assert.notEqual(prop.KHOA, khoa);
+  assert.equal(goi({ k: khoa, thay: [] }).loi, 'khoa');
+});
+
+test('khoa: khoa khac bi chan, khong ghi duoc gi', () => {
   const { goi } = dungMoiTruong();
   assert.equal(goi({ k: 'ngan', thay: [] }).ok, false);
   assert.equal(goi({ thay: [] }).ok, false);
-  assert.equal(goi({ k: K, thay: [] }).ok, true);
   const la = goi({ k: 'b'.repeat(40), thay: [gd('x', 1)] });
-  assert.equal(la.ok, false);
   assert.equal(la.loi, 'khoa');
   assert.equal(goi({ k: K, tu: 0, thay: [gd('y', 1)] }).ds.length, 1); // x khong duoc ghi
+});
+
+test('xung dot: ban gui len cu hon ban tren Sheet thi bi bo, may gui nhan lai ban moi va danh sach cu', () => {
+  const { goi } = dungMoiTruong();
+  const a = goi({ k: K, tu: 0, thay: [gd('1', 20, 500)] });
+  const b = goi({ k: K, tu: a.tu, thay: [gd('1', 10, 300)] }); // may B lech gio, sua truoc
+  assert.deepEqual(b.cu, [{ b: 'an', id: '1' }]);
+  assert.equal(b.ds.length, 1);
+  assert.equal(b.ds[0].r.kcal, 500); // tra lai ban moi du rev khong moi hon
+  assert.deepEqual(goi({ k: K, tu: b.tu, thay: [] }).ds, []);
+});
+
+test('chan so phi sinh ly: can nang, do da, phong; loai cu van nhan; xoa van duoc', () => {
+  const { goi } = dungMoiTruong();
+  const cs = (id, loai, a, b = 0, them = {}) => ({ b: 'cs', r: { id, ngay: '2026-11-01', gio: '07:00', loai, a, b, c: 0, ghi: '', sua: 1, xoa: 0, ...them } });
+  const kq = goi({ k: K, tu: 0, thay: [
+    cs('c1', 'can', 65.5), cs('c2', 'can', 900), cs('c3', 'can', 1),
+    cs('d1', 'da_tran', 42, 18), cs('d2', 'da_ma', 120, 10), cs('d3', 'da_mui', 30, 101),
+    cs('p1', 'phong', 29, 70), cs('p2', 'phong', 90, 50), cs('p3', 'phong', 28, 130),
+    cs('h1', 'huyetap', 120, 80), cs('x1', 'can', 900, 0, { xoa: 1 }),
+  ] });
+  assert.deepEqual(kq.boQua.sort(), ['c2', 'c3', 'd2', 'd3', 'p2', 'p3']);
+  assert.deepEqual(kq.ds.map(x => x.r.id).sort(), ['c1', 'd1', 'h1', 'p1', 'x1']);
+});
+
+test('an uong: muc histamine va co da mun luu dung, o trong = chua phan loai, gia tri la bi chan', () => {
+  const { goi, tabs } = dungMoiTruong();
+  const kq = goi({ k: K, tu: 0, thay: [
+    gd('1', 1, 300, { histamine: '2', duongHuyet: '1', suaBo: '0', nhomBeo: 'omega3', loaiDuong: 'khong-dang-ke' }),
+    gd('2', 1, 300, { histamine: '' }),
+    gd('3', 1, 300, { histamine: '5' }), gd('4', 1, 300, { nhomBeo: 'bo' }), gd('5', 1, 300, { histamine: 2 }),
+  ] });
+  assert.deepEqual(kq.boQua.sort(), ['3', '4', '5']);
+  const r = Object.fromEntries(goi({ k: K, tu: 0, thay: [] }).ds.map(x => [x.r.id, x.r]));
+  assert.equal(r['1'].histamine, '2');
+  assert.equal(r['1'].nhomBeo, 'omega3');
+  assert.equal(r['2'].histamine, ''); // khong bi doc thanh 0
+  assert.equal(tabs.AN_UONG.luoi[0].length, 19);
+});
+
+test('Sheet cu thieu cot moi: tu them tieu de cot vao cuoi, dong cu doc ra chua phan loai', () => {
+  const { goi, tabs, ngu } = dungMoiTruong();
+  ngu.capQuyen();
+  const t = tabs.AN_UONG;
+  t.luoi[0] = t.luoi[0].slice(0, 14); // gia nhu Sheet ban cu chi co 14 cot
+  t.luoi.push(['cu1', '2026-10-01', '08:00', 'sang', 'Bún', '', 400, 0, 0, 0, '', 5, 0, 1]);
+  const r = goi({ k: K, tu: -1, thay: [] }).ds.find(x => x.r.id === 'cu1').r; // tu khac rev de may chu doc Sheet
+  assert.equal(r.histamine, '');
+  assert.equal(t.luoi[0][14], 'histamine');
+  assert.equal(t.luoi[0].length, 19);
 });
 
 test('hai may: may A ghi, may B keo ve dung', () => {
