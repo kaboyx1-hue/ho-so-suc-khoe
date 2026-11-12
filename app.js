@@ -1268,7 +1268,14 @@ document.addEventListener('visibilitychange', () => {
   dongBo();
 });
 setInterval(() => { if (!document.hidden) dongBo(); }, 60000);
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  // Co ban moi (sw moi vua nam quyen) thi tai lai ngay luc dang o man khoa, khong bat nguoi dung tat mo app 2 lan.
+  const daCo = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (daCo && !$('khoa').hidden && !K.ban) location.reload();
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+}
 
 nhanLinkTuDiaChi();
 history.replaceState({ tab, ngay, loaiCs, sau: 0 }, '');
