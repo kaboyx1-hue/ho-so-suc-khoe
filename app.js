@@ -147,7 +147,7 @@ const K = { che: '', so: '', pin1: '', cu: '', ban: false };
 const soSai = () => Number(localStorage.getItem(KHOA_SAI)) || 0;
 const datSai = n => { try { localStorage.setItem(KHOA_SAI, String(n)); } catch (e) { /* het cho thi thoi */ } };
 const TIEU_DE = {
-  nhap: 'Nhập mật mã', nhapMay: 'Nhập mật mã', dat1: 'Đặt mật mã 6 số', dat2: 'Nhập lại mật mã',
+  canLink: 'Hồ Sơ Sức Khoẻ', nhap: 'Nhập mật mã', nhapMay: 'Nhập mật mã', dat1: 'Đặt mật mã 6 số', dat2: 'Nhập lại mật mã',
   doiCu: 'Nhập mật mã hiện tại', doiMoi1: 'Nhập mật mã mới', doiMoi2: 'Nhập lại mật mã mới',
 };
 const QUEN = 'Vào Apps Script chạy hàm xoaPin, rồi mở lại app để đặt mật mã mới. Dữ liệu không mất.';
@@ -242,8 +242,15 @@ async function kiemMay(goiY = '') {
     $('kPhu').style.visibility = '';
   }
 }
+// May chua co link rieng (vd bieu tuong man hinh chinh mo trang khong kem link): khoa, khong cho dung.
+function canLink(chu) {
+  moKhoa('canLink', chu || 'Máy này chưa có link riêng nên chưa mở được. Hãy mở đúng link riêng, hoặc bấm nút dưới để dán link.');
+  $('kCham').style.visibility = $('kPhim').style.visibility = 'hidden';
+  $('kPhu').textContent = 'Dán link riêng';
+  $('kPhu').style.visibility = '';
+}
 function vaoApp() {
-  if (!S.lk) return;
+  if (!S.lk) { canLink(); return; }
   if (P) moKhoa('nhap');
   else kiemMay();
 }
@@ -1076,6 +1083,13 @@ const LAM = {
   doiPin() { moKhoa('doiCu'); },
   phuKhoa() {
     if (K.che.startsWith('doi')) { $('khoa').hidden = true; K.che = ''; K.so = ''; K.cu = K.pin1 = ''; return; }
+    if (K.che === 'canLink') {
+      const s = prompt('Dán link riêng vào đây') || '';
+      if (!s.trim()) return;
+      if (!docLink(s)) { canLink('Link vừa dán không đúng, hãy chép lại cả link'); return; }
+      location.hash = s.trim().split('#').pop();
+      return;
+    }
     if (K.che.startsWith('nhap')) boP();
     kiemMay(QUEN);
   },
@@ -1187,7 +1201,7 @@ window.addEventListener('hashchange', () => {
   nhanLinkTuDiaChi();
   history.replaceState({ tab, ngay, loaiCs, sau: 0 }, '');
   ve();
-  if (S.lk && !P && $('khoa').hidden) vaoApp();
+  if (S.lk && (K.che === 'canLink' || (!P && $('khoa').hidden))) vaoApp();
   dongBo();
 });
 document.addEventListener('keydown', e => {
