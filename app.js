@@ -175,6 +175,7 @@ function moKhoa(che, chu = '') {
   document.body.classList.remove('che');
   K.che = che; K.so = '';
   $('khoa').hidden = false;
+  $('kLink').hidden = true;
   $('kTieuDe').textContent = TIEU_DE[che];
   $('kChu').textContent = chu;
   $('kCham').style.visibility = $('kPhim').style.visibility = '';
@@ -227,6 +228,7 @@ async function kiemMay(goiY = '') {
   $('khoa').hidden = false;
   K.che = 'kiem'; K.so = '';
   $('kTieuDe').textContent = 'Hồ Sơ Sức Khoẻ';
+  $('kLink').hidden = true;
   $('kChu').textContent = 'Đang kiểm tra…';
   $('kCham').style.visibility = $('kPhim').style.visibility = 'hidden';
   $('kPhu').style.visibility = 'hidden';
@@ -244,9 +246,10 @@ async function kiemMay(goiY = '') {
 }
 // May chua co link rieng (vd bieu tuong man hinh chinh mo trang khong kem link): khoa, khong cho dung.
 function canLink(chu) {
-  moKhoa('canLink', chu || 'Máy này chưa có link riêng nên chưa mở được. Hãy mở đúng link riêng, hoặc bấm nút dưới để dán link.');
+  moKhoa('canLink', chu || 'Máy này chưa có link riêng nên chưa mở được. Hãy mở đúng link riêng, hoặc dán link vào ô dưới rồi bấm Mở.');
   $('kCham').style.visibility = $('kPhim').style.visibility = 'hidden';
-  $('kPhu').textContent = 'Dán link riêng';
+  $('kLink').hidden = false;
+  $('kPhu').textContent = 'Mở';
   $('kPhu').style.visibility = '';
 }
 function vaoApp() {
@@ -1100,8 +1103,8 @@ const LAM = {
   phuKhoa() {
     if (K.che.startsWith('doi')) { $('khoa').hidden = true; K.che = ''; K.so = ''; K.cu = K.pin1 = ''; return; }
     if (K.che === 'canLink') {
-      const s = prompt('Dán link riêng vào đây') || '';
-      if (!s.trim()) return;
+      const s = $('kLink').value;
+      if (!s.trim()) { $('kLink').focus(); return; }
       if (!docLink(s)) { canLink('Link vừa dán không đúng, hãy chép lại cả link'); return; }
       location.hash = s.trim().split('#').pop();
       return;
@@ -1226,6 +1229,7 @@ window.addEventListener('hashchange', () => {
 });
 document.addEventListener('keydown', e => {
   if ($('khoa').hidden) return;
+  if (K.che === 'canLink') { if (e.key === 'Enter') LAM.phuKhoa(); return; }
   if (/^\d$/.test(e.key)) bamPhim(e.key);
   else if (e.key === 'Backspace') xoaPhim();
 });

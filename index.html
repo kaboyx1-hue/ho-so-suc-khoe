@@ -227,6 +227,8 @@ details[open] summary::before{content:"− "}
 .kPhim button:active{background:rgba(255,255,255,.55);box-shadow:0 0 26px rgba(255,255,255,.7);transform:scale(.93)}
 .kPhim .chu{background:none;font-size:15px;font-weight:600}
 .kPhim .chu:active{box-shadow:none}
+#kLink{width:min(320px,86vw);margin-top:18px;padding:12px 14px;border:0;border-radius:12px;font-size:15px;background:rgba(255,255,255,.92);color:#123}
+#kLink:not([hidden])+#kPhu{margin-top:12px;padding:10px 34px;border-radius:999px;background:rgba(255,255,255,.25);font-size:15px}
 #kPhu{margin-top:18px;min-height:40px;padding:8px 14px;color:#fff;font-size:14px;font-weight:600}
 @media (max-height:640px){.kPhim{grid-template-columns:repeat(3,64px);gap:9px 20px}.kPhim button{width:64px;height:64px;font-size:27px}.kCham{margin:10px 0 14px}}
 body.che main,body.che header{visibility:hidden}
@@ -345,6 +347,7 @@ body.che main,body.che header{visibility:hidden}
     <button data-phim="7">7</button><button data-phim="8">8</button><button data-phim="9">9</button>
     <span></span><button data-phim="0">0</button><button class="chu" data-xoaso="1" aria-label="Xoá một số">Xoá</button>
   </div>
+  <input id="kLink" hidden type="url" inputmode="url" autocomplete="off" placeholder="Dán link riêng vào đây" aria-label="Link riêng">
   <button id="kPhu" data-lam="phuKhoa"></button>
 </section>
 <script src="tinh.js"></script>
