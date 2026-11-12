@@ -62,14 +62,16 @@ function nhanLinkTuDiaChi() {
 let henGio = 0;
 function henDongBo(ms) { clearTimeout(henGio); henGio = setTimeout(dongBo, ms); }
 
+// Dia chi may chu cua so (khong phai khoa): may moi nhap dung mat ma thi may chu tra khoa ve.
+const MAY_ID = 'AKfycbxHVYYzafR5RR7QsDLWmC3rDQVL6nB58Nq86_nM1KZX70wEaYsLN0WtCU2Wk1bpLFjk';
 async function goiMay(o) {
   const kiemSoat = new AbortController();
   const dongHo = setTimeout(() => kiemSoat.abort(), 45000);
   try {
-    const tl = await fetch(`https://script.google.com/macros/s/${S.lk.id}/exec`, {
+    const tl = await fetch(`https://script.google.com/macros/s/${S.lk ? S.lk.id : MAY_ID}/exec`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // kieu nay trinh duyet khong hoi truoc, Google chiu duoc
-      body: JSON.stringify({ k: S.lk.k, ...o }),
+      body: JSON.stringify({ k: S.lk ? S.lk.k : '', ...o }),
       signal: kiemSoat.signal,
     });
     return await tl.json();
@@ -147,7 +149,7 @@ const K = { che: '', so: '', pin1: '', cu: '', ban: false };
 const soSai = () => Number(localStorage.getItem(KHOA_SAI)) || 0;
 const datSai = n => { try { localStorage.setItem(KHOA_SAI, String(n)); } catch (e) { /* het cho thi thoi */ } };
 const TIEU_DE = {
-  canLink: 'Hồ Sơ Sức Khoẻ', nhap: 'Nhập mật mã', nhapMay: 'Nhập mật mã', dat1: 'Đặt mật mã 6 số', dat2: 'Nhập lại mật mã',
+  canLink: 'Hồ Sơ Sức Khoẻ', moPin: 'Nhập mật mã', nhap: 'Nhập mật mã', nhapMay: 'Nhập mật mã', dat1: 'Đặt mật mã 6 số', dat2: 'Nhập lại mật mã',
   doiCu: 'Nhập mật mã hiện tại', doiMoi1: 'Nhập mật mã mới', doiMoi2: 'Nhập lại mật mã mới',
 };
 const QUEN = 'Vào Apps Script chạy hàm xoaPin, rồi mở lại app để đặt mật mã mới. Dữ liệu không mất.';
@@ -221,6 +223,7 @@ function chuLoi(kq) {
   if (kq.loi === 'saiPin') return `Sai mật mã, còn ${kq.conLai} lần`;
   if (kq.loi === 'khoaPin') return `Sai nhiều lần, thử lại sau ${Math.ceil(kq.doi / 60000)} phút`;
   if (kq.loi === 'khoa') return 'Link riêng không đúng';
+  if (kq.loi === 'chua co mat ma') return 'Sổ chưa có mật mã, hãy mở bằng link riêng để đặt';
   if (kq.loi === 'chuaKhoa') return 'Sổ chưa có khoá. Vào Apps Script chạy hàm capQuyen';
   return kq.loi || 'Có lỗi, hãy thử lại';
 }
@@ -253,7 +256,7 @@ function canLink(chu) {
   $('kPhu').style.visibility = '';
 }
 function vaoApp() {
-  if (!S.lk) { canLink(); return; }
+  if (!S.lk) { moKhoa('moPin'); $('kPhu').textContent = 'Dùng link riêng'; $('kPhu').style.visibility = ''; return; }
   if (P) moKhoa('nhap');
   else kiemMay();
 }
@@ -267,6 +270,16 @@ const LUONG = {
     boP();
     datSai(0);
     moKhoa('nhapMay', 'Sai 5 lần. Cần có mạng để kiểm tra lại mật mã.');
+  },
+  async moPin(so) {
+    let kq;
+    try { kq = await goiMay({ moPin: so }); } catch (e) { saiRung('Lần đầu trên máy này cần có mạng'); return; }
+    if (!kq.ok) { saiRung(chuLoi(kq)); return; }
+    S.lk = { id: MAY_ID, k: kq.k };
+    luuKho();
+    await luuP(so, kq.the);
+    datSai(0);
+    moApp();
   },
   async nhapMay(so) {
     const kq = await goiMay({ pin: so });
@@ -1102,6 +1115,7 @@ const LAM = {
   doiPin() { moKhoa('doiCu'); },
   phuKhoa() {
     if (K.che.startsWith('doi')) { $('khoa').hidden = true; K.che = ''; K.so = ''; K.cu = K.pin1 = ''; return; }
+    if (K.che === 'moPin') { canLink(); return; }
     if (K.che === 'canLink') {
       const s = $('kLink').value;
       if (!s.trim()) { $('kLink').focus(); return; }

@@ -42,7 +42,9 @@ function tra_(o) {
 
 function xuLy_(goi) {
   const khoa = goi && goi.k;
-  if (typeof khoa !== 'string' || !/^[\w-]{32,128}$/.test(khoa)) return { ok: false, loi: 'khoa' };
+  // May moi chua co link rieng: nhap dung mat ma thi nhan khoa (sai thi khoa dan, chung voi moi cach nhap mat ma).
+  const moPin = goi && goi.moPin !== undefined;
+  if (!moPin && (typeof khoa !== 'string' || !/^[\w-]{32,128}$/.test(khoa))) return { ok: false, loi: 'khoa' };
 
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
@@ -51,10 +53,14 @@ function xuLy_(goi) {
     // Khoa chi do chu tao (chay capQuyen trong trinh soan thao), khong de request dau tien tu chiem so.
     const daCo = kho.getProperty('KHOA');
     if (!daCo) return { ok: false, loi: 'chuaKhoa' };
+    const pin = kho.getProperty('PIN');
+    if (moPin) {
+      const kq = thuPin_(kho, String(goi.moPin), pin);
+      return kq.ok ? Object.assign(kq, { k: daCo }) : kq;
+    }
     if (daCo !== khoa) return { ok: false, loi: 'khoa' };
 
     // Mat ma: link rieng thoi chua du, phai co "the" duoc cap sau khi nhap dung mat ma.
-    const pin = kho.getProperty('PIN');
     if (goi.hoiPin) return { ok: true, coPin: !!pin };
     if (goi.datPin !== undefined) {
       if (pin) return { ok: false, loi: 'da co mat ma' };

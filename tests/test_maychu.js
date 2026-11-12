@@ -267,3 +267,17 @@ test('tu dung 4 trang, dung lai trang mac dinh, goi qua lon bi tu choi', () => {
   const nhieu = Array.from({ length: 501 }, (_, i) => gd('n' + i, 1));
   assert.equal(goi({ k: K, tu: 0, thay: nhieu }).ok, false);
 });
+
+test('moPin: may moi khong co link, nhap dung mat ma thi nhan khoa + the; sai thi khong lo khoa va bi khoa dan', () => {
+  const { goi } = dungMoiTruong();
+  assert.equal(goi({ moPin: '123456' }).loi, 'chua co mat ma');
+  const dat = goi({ k: K, datPin: '246810' });
+  const kq = goi({ moPin: '246810' });
+  assert.equal(kq.ok, true);
+  assert.equal(kq.k, K);
+  assert.equal(kq.the, dat.the);
+  for (let i = 0; i < 4; i++) { const s = goi({ moPin: '000000' }); assert.equal(s.loi, 'saiPin'); assert.equal(s.k, undefined); }
+  assert.equal(goi({ moPin: '000000' }).loi, 'khoaPin');
+  assert.equal(goi({ moPin: '246810' }).loi, 'khoaPin'); // dang khoa thi dung cung khong vao
+  assert.equal(goi({ thay: [] }).loi, 'khoa'); // khong co moPin thi van phai co khoa
+});
