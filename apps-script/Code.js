@@ -2,8 +2,8 @@
 // Khong co mat khau trong file nay. Khoa rieng duoc giu trong Script Properties.
 
 const BANG = {
-  hs: { ten: 'HO_SO', cot: ['id', 'ten', 'sinh', 'gioi', 'cao', 'nhomMau', 'diUng', 'benh', 'thuoc', 'lienHe', 'ghi', 'vanDong', 'mucKcal', 'mucNuoc', 'sua', 'xoa', 'rev', 'mucHistamine'],
-    chu: ['id', 'ten', 'sinh', 'gioi', 'nhomMau', 'diUng', 'benh', 'thuoc', 'lienHe', 'ghi'] },
+  hs: { ten: 'HO_SO', cot: ['id', 'ten', 'sinh', 'gioi', 'cao', 'nhomMau', 'diUng', 'benh', 'thuoc', 'lienHe', 'ghi', 'vanDong', 'mucKcal', 'mucNuoc', 'sua', 'xoa', 'rev', 'mucHistamine', 'monMun'],
+    chu: ['id', 'ten', 'sinh', 'gioi', 'nhomMau', 'diUng', 'benh', 'thuoc', 'lienHe', 'ghi', 'monMun'] },
   cs: { ten: 'CHI_SO', cot: ['id', 'ngay', 'gio', 'loai', 'a', 'b', 'c', 'ghi', 'sua', 'xoa', 'rev'], chu: ['id', 'ngay', 'gio', 'loai', 'ghi'] },
   // Cot moi luon them vao CUOI: Sheet cu da co du lieu theo vi tri cot. mucNuoc khong con dung, giu cho dung vi tri.
   // Muc histamine va 4 co da mun la chu: o trong = chua phan loai (khong duoc doc thanh 0 = "thap").

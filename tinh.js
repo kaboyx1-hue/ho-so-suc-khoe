@@ -125,6 +125,31 @@
   const RO = 0.75; // ung vien thu 2 duoi 75% diem ung vien 1 thi coi la ro rang
 
   // Tra { kq: 'ro'|'mo'|'khong', chon, ungVien }. Go co dau thi so co dau, go khong dau thi so khong dau.
+  // Mon hay lam nguoi dung noi mun: nguoi dung tu chon nhom (hoac go ten rieng), app chi doi chieu ten mon.
+  // Doi chieu theo TU co dau ("trứng" khong trung "trung thu").
+  T.NHOM_MUN = [
+    ['Trà sữa', ['trà sữa', 'sữa tươi trân châu']],
+    ['Trà trái cây', ['trà đào', 'trà vải', 'trà chanh', 'trà trái cây', 'trà cam', 'trà dâu', 'trà xoài', 'trà ổi', 'trà mãng cầu', 'trà tắc', 'trà bưởi', 'trà thơm', 'trà dứa', 'trà táo', 'trà lựu', 'trà nhiệt đới', 'trà chanh dây']],
+    ['Trứng', ['trứng']],
+    ['Sữa yến mạch', ['sữa yến mạch', 'oatside', 'oat milk']],
+    ['Mì gói', ['mì ăn liền', 'mì gói', 'mỳ gói', 'mì tôm', 'mì cay']],
+    ['Thức ăn nhanh', ['hamburger', 'pizza', 'gà rán', 'gà chiên giòn', 'hot dog', 'khoai tây chiên', 'gà viên', 'nugget', 'zinger']],
+    ['Sữa bò', ['sữa tươi', 'sữa đặc', 'sữa bò', 'sữa chua', 'phô mai', 'bạc xỉu', 'cà phê sữa']],
+    ['Đồ chiên rán', ['chiên', 'rán']],
+    ['Bánh ngọt, kẹo', ['bánh kem', 'bánh ngọt', 'donut', 'bông lan', 'kẹo', 'bánh quy']],
+    ['Sô cô la', ['socola', 'sô cô la', 'chocolate']],
+  ];
+  const tuMon = s => ' ' + String(s).normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() + ' ';
+  // "Trứng, trà sữa, bánh tráng trộn" -> [{ten, kw}]; ten nhom co san thi lay bo tu khoa, khac thi dung chinh chu do
+  T.dsMun = chuoi => String(chuoi || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean).map(ten => {
+    const n = T.NHOM_MUN.find(([t]) => T.boDau(t.toLowerCase()) === T.boDau(ten.toLowerCase()));
+    return n ? { ten: n[0], kw: n[1] } : { ten, kw: [ten] };
+  });
+  T.munCua = (tenMon, dsMun) => {
+    const t = tuMon(tenMon);
+    return dsMun.filter(n => n.kw.some(k => t.includes(tuMon(k)))).map(n => n.ten);
+  };
+
   T.khopMon = (chuoi, cm) => {
     const q0 = tuCua(chuoi);
     if (!q0.length) return { kq: 'khong', chon: null, ungVien: [] };

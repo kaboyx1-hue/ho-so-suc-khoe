@@ -223,3 +223,17 @@ test('phan an: nhan dung, quy ve 1 phan, diem histamine nhan theo phan', () => {
   assert.equal(T.tenPhan(0), 'Vừa');
   assert.equal(T.diemNgay([{ bua: 'trua', histamine: '2', phan: 1.5 }, { bua: 'toi', histamine: '1', phan: 0.5 }]).tong, 5);
 });
+
+test('mon hay gay mun: chon nhom hoac go ten rieng, doi chieu theo tu co dau', () => {
+  const dm = T.dsMun('Trứng, trà sữa, Thức ăn nhanh, Mì gói, Trà trái cây, Sữa yến mạch, bánh tráng trộn');
+  assert.deepEqual(T.munCua('Trứng chiên thịt bằm', dm), ['Trứng']);
+  assert.deepEqual(T.munCua('Bánh trung thu nướng thập cẩm', dm), []); // trung thu khong phai trung
+  assert.deepEqual(T.munCua('Trà sữa trân châu', dm), ['Trà sữa']);
+  assert.deepEqual(T.munCua('Trà đào cam sả', dm), ['Trà trái cây']);
+  assert.deepEqual(T.munCua('Mì ăn liền (mì gói)', dm), ['Mì gói']);
+  assert.deepEqual(T.munCua('Pizza (phô mai, đế bột mì, topping thịt/xúc xích)', dm), ['Thức ăn nhanh']);
+  assert.deepEqual(T.munCua('Sữa yến mạch Oatside (hộp/chai)', dm), ['Sữa yến mạch']);
+  assert.deepEqual(T.munCua('Bánh tráng trộn', dm), ['bánh tráng trộn']);
+  assert.deepEqual(T.munCua('Canh rau ngót thịt bằm', dm), []);
+  assert.deepEqual(T.dsMun(''), []);
+});
