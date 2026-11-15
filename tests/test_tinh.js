@@ -120,9 +120,11 @@ test('khop: go ten nguyen lieu thi bay ra MOI cach che bien de chon, khong doan 
   assert.equal(k.kq, 'mo');
   assert.ok(k.ungVien.every(m => /cải/i.test(m.mon)));
   assert.equal(khop('cơm').kq, 'mo');
-  const canh = khop('canh rau củ'); // canh hay rau cu luoc: hoi lai, mon canh dung dau
-  assert.equal(canh.kq, 'mo');
-  assert.match(canh.ungVien[0].mon, /^Canh/);
+  const canh = khop('canh rau củ'); // da co mon canh rau cu rieng
+  assert.equal(canh.kq, 'ro');
+  assert.match(canh.chon.mon, /^Canh rau củ/);
+  assert.match(khop('cơm').ungVien[0].mon, /^Cơm/); // mon mo dau bang com xep truoc ca com
+  for (const g of ['canh rau ngót', 'canh cà chua trứng', 'đậu que xào', 'rau lang luộc']) assert.notEqual(khop(g).kq, 'khong', g);
 });
 
 test('kho bien the: du truong, khong trung ten, muc histamine theo cach nau, so hop ly', () => {

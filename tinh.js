@@ -161,7 +161,9 @@
     if (coDu.length === 1) return { kq: 'ro', chon: coDu[0].m, ungVien: ds.filter(x => x !== coDu[0]).slice(0, 3).map(x => x.m) };
     if (coDu.length > 1 && coDu[1].d < coDu[0].d * 0.6) return { kq: 'ro', chon: coDu[0].m, ungVien: coDu.slice(1, 40).map(x => x.m) }; // 1 mon noi han
     // Xep theo ten de cung loai dung canh nhau (Thit heo ba chi..., Thit heo nac...)
-    if (coDu.length > 1) return { kq: 'mo', chon: null, ungVien: coDu.slice(0, 40).map(x => x.m).sort((a, b) => a.mon.localeCompare(b.mon, 'vi')) };
+    // Mon mo dau dung chu da go ("cơm" -> Cơm trắng, Cơm gạo lứt) xep truoc mon chi chua chu do o giua (Cá cơm...)
+    const dauDung = x => ((coDau ? x.tu : x.kd)[0] === q[0] ? 0 : 1);
+    if (coDu.length > 1) return { kq: 'mo', chon: null, ungVien: coDu.slice(0, 40).sort((a, b) => dauDung(a.ct) - dauDung(b.ct) || a.m.mon.localeCompare(b.m.mon, 'vi')).map(x => x.m) };
     // Chu dau la loai mon ("canh rau củ"): mon diem cao nhat khong co chu do ma co mon khac mo dau dung chu do -> hoi lai
     const dauCua = x => (coDau ? tuOf(x).tu : tuOf(x).kd);
     const dungLoai = ds.find(x => dauCua(x)[0] === q[0]);
